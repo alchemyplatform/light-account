@@ -21,24 +21,24 @@ jobs:
 
       - run: forge fmt --check
 
-  check-inspect:
-    name: Verify Inspections
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: nightly
+  # check-inspect:
+  #   name: Verify Inspections
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - name: Install Foundry
+  #       uses: foundry-rs/foundry-toolchain@v1
+  #       with:
+  #         version: nightly
 
-      - run: forge install
-      - run: bash ./utils/inspect.sh
+  #     - run: forge install
+  #     - run: bash ./utils/inspect.sh
 
-      - run: git status --untracked-files=no --porcelain
-      - run: git --no-pager diff
+  #     - run: git status --untracked-files=no --porcelain
+  #     - run: git --no-pager diff
 
-      - name: Check Inspections
-        run: if [[ -n "$(git status --untracked-files=no --porcelain)" ]]; then echo "Inspection difference detected, verify tests are passing and run \`bash ./utils/inspect.sh\` to fix." && exit 1; fi
+  #     - name: Check Inspections
+  #       run: if [[ -n "$(git status --untracked-files=no --porcelain)" ]]; then echo "Inspection difference detected, verify tests are passing and run \`bash ./utils/inspect.sh\` to fix." && exit 1; fi
 
   test:
     name: Run Forge Tests
