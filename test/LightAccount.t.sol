@@ -47,6 +47,13 @@ contract LightAccountTest is Test {
         assertTrue(lightSwitch.on());
     }
 
+    function testExecuteWithValueCanBeCalledByOwner() public {
+        vm.prank(eoaAddress);
+        account.execute(address(lightSwitch), 1 ether, abi.encodeCall(LightSwitch.turnOn, ()));
+        assertTrue(lightSwitch.on());
+        assertEq(address(lightSwitch).balance, 1 ether);
+    }
+
     function testExecuteCanBeCalledByEntryPointWithExternalOwner() public {
         UserOperation memory op =
             _getSignedOp(address(lightSwitch), abi.encodeCall(LightSwitch.turnOn, ()), EOA_PRIVATE_KEY);
@@ -105,6 +112,32 @@ contract LightAccountTest is Test {
         func[0] = abi.encodeCall(LightSwitch.turnOn, ());
         vm.expectRevert(bytes("wrong array lengths"));
         account.executeBatch(dest, func);
+    }
+
+    function testExecuteBatchWithValueCalledByOwner() public {
+        vm.prank(eoaAddress);
+        address[] memory dest = new address[](1);
+        dest[0] = address(lightSwitch);
+        uint256[] memory value = new uint256[](1);
+        value[0] = uint256(1);
+        bytes[] memory func = new bytes[](1);
+        func[0] = abi.encodeCall(LightSwitch.turnOn, ());
+        account.executeBatch(dest, value, func);
+        assertTrue(lightSwitch.on());
+        assertEq(address(lightSwitch).balance, 1);
+    }
+
+    function testExecuteBatchWithValueFailsForUnevenInputArrays() public {
+        vm.prank(eoaAddress);
+        address[] memory dest = new address[](1);
+        dest[0] = address(lightSwitch);
+        uint256[] memory value = new uint256[](2);
+        value[0] = uint256(1);
+        value[1] = uint256(1 ether);
+        bytes[] memory func = new bytes[](1);
+        func[0] = abi.encodeCall(LightSwitch.turnOn, ());
+        vm.expectRevert(bytes("wrong array lengths"));
+        account.executeBatch(dest, value, func);
     }
 
     function testInitialize() public {
@@ -272,7 +305,7 @@ contract LightAccountTest is Test {
 contract LightSwitch {
     bool public on;
 
-    function turnOn() external {
+    function turnOn() external payable {
         on = true;
     }
 }

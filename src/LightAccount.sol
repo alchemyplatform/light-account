@@ -29,7 +29,8 @@ import {CustomSlotInitializable} from "./CustomSlotInitializable.sol";
  *
  * 3. Supports [ERC-1271](https://eips.ethereum.org/EIPS/eip-1271) signature
  * validation for both validating the signature on user operations and in
- * exposing its own `isValidSignature` method.
+ * exposing its own `isValidSignature` method. This only works when the owner of
+ * LightAccount also support ERC-1271.
  *
  * 4. Event `SimpleAccountInitialized` renamed to `LightAccountInitialized`.
  */
@@ -101,6 +102,22 @@ contract LightAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, Cus
         require(dest.length == func.length, "wrong array lengths");
         for (uint256 i = 0; i < dest.length; i++) {
             _call(dest[i], 0, func[i]);
+        }
+    }
+
+    /**
+     * @notice Execute a sequence of transactions
+     * @param dest An array of the targets for each transaction in the sequence
+     * @param value An array of value for each transaction in the sequence
+     * @param func An array of calldata for each transaction in the sequence.
+     * Must be the same length as dest, with corresponding elements representing
+     * the parameters for each transaction.
+     */
+    function executeBatch(address[] calldata dest, uint256[] calldata value, bytes[] calldata func) external {
+        _requireFromEntryPointOrOwner();
+        require(dest.length == func.length && dest.length == value.length, "wrong array lengths");
+        for (uint256 i = 0; i < dest.length; i++) {
+            _call(dest[i], value[i], func[i]);
         }
     }
 
