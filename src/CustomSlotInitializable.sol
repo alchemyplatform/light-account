@@ -82,13 +82,6 @@ abstract contract CustomSlotInitializable {
         _storagePosition = storagePosition;
     }
 
-    function _getInitialiazableStorage() private view returns (CustomSlotInitializableStorage storage _storage) {
-        bytes32 position = _storagePosition;
-        assembly {
-            _storage.slot := position
-        }
-    }
-
     /**
      * @dev A modifier that defines a protected initializer function that can be invoked at most once. In its scope,
      * `onlyInitializing` functions can be used to initialize parent contracts.
@@ -185,5 +178,12 @@ abstract contract CustomSlotInitializable {
      */
     function _isInitializing() internal view returns (bool) {
         return _getInitialiazableStorage().initializing;
+    }
+
+    function _getInitialiazableStorage() private view returns (CustomSlotInitializableStorage storage _storage) {
+        bytes32 position = _storagePosition;
+        assembly {
+            _storage.slot := position
+        }
     }
 }
