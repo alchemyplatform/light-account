@@ -3,8 +3,6 @@
 
 pragma solidity ^0.8.21;
 
-import {Address} from "@openzeppelin/contracts/utils/Address.sol";
-
 /**
  * @dev Identical to OpenZeppelin's `Initializable`, except that its state variables are kept at a custom storage slot
  * instead of at the start of storage.
@@ -74,6 +72,16 @@ abstract contract CustomSlotInitializable {
     }
 
     /**
+     * @dev The contract is already initialized.
+     */
+    error InvalidInitialization();
+
+    /**
+     * @dev The contract is not initializing.
+     */
+    error NotInitializing();
+
+    /**
      * @dev Triggered when the contract has been initialized or reinitialized.
      */
     event Initialized(uint64 version);
@@ -92,13 +100,23 @@ abstract contract CustomSlotInitializable {
      * Emits an {Initialized} event.
      */
     modifier initializer() {
-        CustomSlotInitializableStorage storage _storage = _getInitialiazableStorage();
+        CustomSlotInitializableStorage storage _storage = _getInitializableStorage();
+
+        // Cache values to avoid duplicated sloads
         bool isTopLevelCall = !_storage.initializing;
-        require(
-            (isTopLevelCall && _storage.initialized < 1)
-                || (!Address.isContract(address(this)) && _storage.initialized == 1),
-            "Initializable: contract is already initialized"
-        );
+        uint64 initialized = _storage.initialized;
+
+        // Allowed calls:
+        // - initialSetup: the contract is not in the initializing state and no previous version was
+        //                 initialized
+        // - construction: the contract is initialized at version 1 (no reininitialization) and the
+        //                 current contract is just being deployed
+        bool initialSetup = initialized == 0 && isTopLevelCall;
+        bool construction = initialized == 1 && address(this).code.length == 0;
+
+        if (!initialSetup && !construction) {
+            revert InvalidInitialization();
+        }
         _storage.initialized = 1;
         if (isTopLevelCall) {
             _storage.initializing = true;
@@ -129,10 +147,11 @@ abstract contract CustomSlotInitializable {
      * Emits an {Initialized} event.
      */
     modifier reinitializer(uint64 version) {
-        CustomSlotInitializableStorage storage _storage = _getInitialiazableStorage();
-        require(
-            !_storage.initializing && _storage.initialized < version, "Initializable: contract is already initialized"
-        );
+        CustomSlotInitializableStorage storage _storage = _getInitializableStorage();
+
+        if (_storage.initializing || _storage.initialized >= version) {
+            revert InvalidInitialization();
+        }
         _storage.initialized = version;
         _storage.initializing = true;
         _;
@@ -145,7 +164,9 @@ abstract contract CustomSlotInitializable {
      * {initializer} and {reinitializer} modifiers, directly or indirectly.
      */
     modifier onlyInitializing() {
-        require(_getInitialiazableStorage().initializing, "Initializable: contract is not initializing");
+        if (!_isInitializing()) {
+            revert NotInitializing();
+        }
         _;
     }
 
@@ -158,8 +179,11 @@ abstract contract CustomSlotInitializable {
      * Emits an {Initialized} event the first time it is successfully executed.
      */
     function _disableInitializers() internal virtual {
-        CustomSlotInitializableStorage storage _storage = _getInitialiazableStorage();
-        require(!_storage.initializing, "Initializable: contract is initializing");
+        CustomSlotInitializableStorage storage _storage = _getInitializableStorage();
+
+        if (_storage.initializing) {
+            revert InvalidInitialization();
+        }
         if (_storage.initialized != type(uint64).max) {
             _storage.initialized = type(uint64).max;
             emit Initialized(type(uint64).max);
@@ -170,17 +194,17 @@ abstract contract CustomSlotInitializable {
      * @dev Returns the highest version that has been initialized. See {reinitializer}.
      */
     function _getInitializedVersion() internal view returns (uint64) {
-        return _getInitialiazableStorage().initialized;
+        return _getInitializableStorage().initialized;
     }
 
     /**
      * @dev Returns `true` if the contract is currently initializing. See {onlyInitializing}.
      */
     function _isInitializing() internal view returns (bool) {
-        return _getInitialiazableStorage().initializing;
+        return _getInitializableStorage().initializing;
     }
 
-    function _getInitialiazableStorage() private view returns (CustomSlotInitializableStorage storage _storage) {
+    function _getInitializableStorage() private view returns (CustomSlotInitializableStorage storage _storage) {
         bytes32 position = _storagePosition;
         assembly {
             _storage.slot := position

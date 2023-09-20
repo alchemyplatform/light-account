@@ -40,26 +40,26 @@ contract CustomSlotInitializableTest is Test {
     }
 
     function testCannotReinitialize() public {
-        vm.expectRevert(bytes("Initializable: contract is already initialized"));
+        vm.expectRevert(CustomSlotInitializable.InvalidInitialization.selector);
         v1Proxy.upgradeToAndCall(v1Impl, abi.encodeCall(V1.initialize, ()));
     }
 
     function testCannotUpgradeBackwards() public {
         v1Proxy.upgradeToAndCall(v2Impl, abi.encodeCall(V2.initialize, ()));
         V2 v2Proxy = V2(address(v1Proxy));
-        vm.expectRevert(bytes("Initializable: contract is already initialized"));
+        vm.expectRevert(CustomSlotInitializable.InvalidInitialization.selector);
         v2Proxy.upgradeToAndCall(v1Impl, abi.encodeCall(V1.initialize, ()));
     }
 
     function testDisableInitializers() public {
         v1Proxy.disableInitializers();
-        vm.expectRevert(bytes("Initializable: contract is already initialized"));
+        vm.expectRevert(CustomSlotInitializable.InvalidInitialization.selector);
         v1Proxy.upgradeToAndCall(v2Impl, abi.encodeCall(V2.initialize, ()));
     }
 
     function testCannotCallDisableInitializersInInitializer() public {
         DisablesInitializersWhileInitializing account = new DisablesInitializersWhileInitializing();
-        vm.expectRevert("Initializable: contract is initializing");
+        vm.expectRevert(CustomSlotInitializable.InvalidInitialization.selector);
         account.initialize();
     }
 

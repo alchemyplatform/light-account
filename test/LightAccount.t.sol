@@ -82,7 +82,7 @@ contract LightAccountTest is Test {
     }
 
     function testExecuteCannotBeCalledByRandos() public {
-        vm.expectRevert(bytes("account: not Owner or EntryPoint"));
+        vm.expectRevert(abi.encodeWithSelector(LightAccount.NotAuthorized.selector, (address(this))));
         account.execute(address(lightSwitch), 0, abi.encodeCall(LightSwitch.turnOn, ()));
     }
 
@@ -110,7 +110,7 @@ contract LightAccountTest is Test {
         dest[1] = address(lightSwitch);
         bytes[] memory func = new bytes[](1);
         func[0] = abi.encodeCall(LightSwitch.turnOn, ());
-        vm.expectRevert(bytes("wrong array lengths"));
+        vm.expectRevert(LightAccount.ArrayLengthMismatch.selector);
         account.executeBatch(dest, func);
     }
 
@@ -136,7 +136,7 @@ contract LightAccountTest is Test {
         value[1] = uint256(1 ether);
         bytes[] memory func = new bytes[](1);
         func[0] = abi.encodeCall(LightSwitch.turnOn, ());
-        vm.expectRevert(bytes("wrong array lengths"));
+        vm.expectRevert(LightAccount.ArrayLengthMismatch.selector);
         account.executeBatch(dest, value, func);
     }
 
@@ -163,7 +163,7 @@ contract LightAccountTest is Test {
 
     function testWithdrawDepositToCannotBeCalledByRandos() public {
         account.addDeposit{value: 10}();
-        vm.expectRevert(bytes("only owner"));
+        vm.expectRevert(abi.encodeWithSelector(LightAccount.NotAuthorized.selector, (address(this))));
         account.withdrawDepositTo(BENEFICIARY, 5);
     }
 
@@ -189,19 +189,19 @@ contract LightAccountTest is Test {
     }
 
     function testRandosCannotTransferOwnership() public {
-        vm.expectRevert(bytes("only owner"));
+        vm.expectRevert(abi.encodeWithSelector(LightAccount.NotAuthorized.selector, (address(this))));
         account.transferOwnership(address(0x100));
     }
 
     function testCannotTransferOwnershipToZero() public {
         vm.prank(eoaAddress);
-        vm.expectRevert(bytes("account: new owner is the zero address"));
+        vm.expectRevert(abi.encodeWithSelector(LightAccount.InvalidOwner.selector, (address(0))));
         account.transferOwnership(address(0));
     }
 
     function testCannotTransferOwnershipToLightContractItself() public {
         vm.prank(eoaAddress);
-        vm.expectRevert(bytes("account: new owner is self"));
+        vm.expectRevert(abi.encodeWithSelector(LightAccount.InvalidOwner.selector, (address(account))));
         account.transferOwnership(address(account));
     }
 
@@ -244,7 +244,7 @@ contract LightAccountTest is Test {
         // Try to upgrade to a normal SimpleAccount with a different entry point.
         IEntryPoint newEntryPoint = IEntryPoint(address(0x2000));
         SimpleAccount newImplementation = new SimpleAccount(newEntryPoint);
-        vm.expectRevert(bytes("only owner"));
+        vm.expectRevert(abi.encodeWithSelector(LightAccount.NotAuthorized.selector, (address(this))));
         account.upgradeToAndCall(address(newImplementation), abi.encodeCall(SimpleAccount.initialize, (address(this))));
     }
 
