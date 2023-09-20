@@ -147,6 +147,12 @@ contract LightAccountTest is Test {
         account = factory.createAccount(eoaAddress, 1);
     }
 
+    function testCannotInitializeWithZeroOwner() public {
+        LightAccountFactory factory = new LightAccountFactory(entryPoint);
+        vm.expectRevert(abi.encodeWithSelector(LightAccount.InvalidOwner.selector, (address(0))));
+        account = factory.createAccount(address(0), 1);
+    }
+
     function testAddDeposit() public {
         assertEq(account.getDeposit(), 0);
         account.addDeposit{value: 10}();
@@ -191,6 +197,12 @@ contract LightAccountTest is Test {
     function testRandosCannotTransferOwnership() public {
         vm.expectRevert(abi.encodeWithSelector(LightAccount.NotAuthorized.selector, (address(this))));
         account.transferOwnership(address(0x100));
+    }
+
+    function testCannotTransferOwnershipToCurrentOwner() public {
+        vm.prank(eoaAddress);
+        vm.expectRevert(abi.encodeWithSelector(LightAccount.InvalidOwner.selector, (eoaAddress)));
+        account.transferOwnership(eoaAddress);
     }
 
     function testCannotTransferOwnershipToZero() public {
