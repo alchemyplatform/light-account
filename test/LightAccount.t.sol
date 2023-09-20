@@ -29,7 +29,7 @@ contract LightAccountTest is Test {
 
     event SimpleAccountInitialized(IEntryPoint indexed entryPoint, address indexed owner);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
-    event Initialized(uint8 version);
+    event Initialized(uint64 version);
 
     function setUp() public {
         eoaAddress = vm.addr(EOA_PRIVATE_KEY);
