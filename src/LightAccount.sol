@@ -18,11 +18,11 @@ import {TokenCallbackHandler} from "account-abstraction/samples/callback/TokenCa
 import {CustomSlotInitializable} from "./CustomSlotInitializable.sol";
 
 /**
- * @title A simple ERC-4337 smart contract account with a designated owner account
+ * @title A simple ERC-4337 compatible smart contract account with a designated owner account
  * @dev Like eth-infinitism's `SimpleAccount`, but with the following changes:
  *
- * 1. Instead of the default storage slots, uses diamond storage to avoid clashes
- * when switching implementations.
+ * 1. Instead of the default storage slots, uses namespaced storage to avoid
+ * clashes when switching implementations.
  *
  * 2. Ownership can be transferred via `transferOwnership`, similar to the
  * behavior of an `Ownable` contract. This is a simple single-step operation,
@@ -32,7 +32,7 @@ import {CustomSlotInitializable} from "./CustomSlotInitializable.sol";
  * 3. Supports [ERC-1271](https://eips.ethereum.org/EIPS/eip-1271) signature
  * validation for both validating the signature on user operations and in
  * exposing its own `isValidSignature` method. This only works when the owner of
- * LightAccount also support ERC-1271.
+ * `LightAccount` also support ERC-1271.
  *
  * ERC-4337's bundler validation rules limit the types of contracts that can be
  * used as owners to validate user operation signatures. For example, the
@@ -40,8 +40,8 @@ import {CustomSlotInitializable} from "./CustomSlotInitializable.sol";
  * such as `TIMESTAMP` or `NUMBER`, and the contract may not be an ERC-1967
  * proxy as it accesses a constant implementation slot not associated with
  * the account, violating storage access rules. This also means that the
- * owner of a LightAccount may not be another LightAccount if you want to send
- * user operations through a bundler.
+ * owner of a `LightAccount` may not be another `LightAccount` if you want to
+ * send user operations through a bundler.
  *
  * 4. Event `SimpleAccountInitialized` renamed to `LightAccountInitialized`.
  *
