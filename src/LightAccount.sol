@@ -25,7 +25,9 @@ import {CustomSlotInitializable} from "./CustomSlotInitializable.sol";
  * when switching implementations.
  *
  * 2. Ownership can be transferred via `transferOwnership`, similar to the
- * behavior of an `Ownable` contract.
+ * behavior of an `Ownable` contract. This is a simple single-step operation,
+ * so care must be taken to ensure that the ownership is being transferred to
+ * the correct address.
  *
  * 3. Supports [ERC-1271](https://eips.ethereum.org/EIPS/eip-1271) signature
  * validation for both validating the signature on user operations and in
