@@ -42,6 +42,8 @@ import {CustomSlotInitializable} from "./CustomSlotInitializable.sol";
  * user operations through a bundler.
  *
  * 4. Event `SimpleAccountInitialized` renamed to `LightAccountInitialized`.
+ *
+ * 5. Uses custom errors.
  */
 contract LightAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, CustomSlotInitializable, IERC1271 {
     using ECDSA for bytes32;
@@ -73,6 +75,22 @@ contract LightAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, Cus
      * @param newOwner The new owner
      */
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    /**
+     * @dev The length of the array does not match the expected length.
+     */
+    error ArrayLengthMismatch();
+
+    /**
+     * @dev The new owner is not a valid owner (e.g., `address(0)` or the
+     * account itself).
+     */
+    error InvalidOwner(address owner);
+
+    /**
+     * @dev The caller is not authorized.
+     */
+    error NotAuthorized(address caller);
 
     modifier onlyOwner() {
         _onlyOwner();
@@ -108,9 +126,15 @@ contract LightAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, Cus
      */
     function executeBatch(address[] calldata dest, bytes[] calldata func) external {
         _requireFromEntryPointOrOwner();
-        require(dest.length == func.length, "wrong array lengths");
-        for (uint256 i = 0; i < dest.length; i++) {
+        if (dest.length != func.length) {
+            revert ArrayLengthMismatch();
+        }
+        uint256 length = dest.length;
+        for (uint256 i = 0; i < length;) {
             _call(dest[i], 0, func[i]);
+            unchecked {
+                ++i;
+            }
         }
     }
 
@@ -124,10 +148,29 @@ contract LightAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, Cus
      */
     function executeBatch(address[] calldata dest, uint256[] calldata value, bytes[] calldata func) external {
         _requireFromEntryPointOrOwner();
-        require(dest.length == func.length && dest.length == value.length, "wrong array lengths");
-        for (uint256 i = 0; i < dest.length; i++) {
-            _call(dest[i], value[i], func[i]);
+        if (dest.length != func.length || dest.length != value.length) {
+            revert ArrayLengthMismatch();
         }
+        uint256 length = dest.length;
+        for (uint256 i = 0; i < length;) {
+            _call(dest[i], value[i], func[i]);
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    /**
+     * @notice Transfers ownership of the contract to a new account (`newOwner`).
+     * Can only be called by the current owner or from the entry point via a
+     * user operation signed by the current owner.
+     * @param newOwner The new owner
+     */
+    function transferOwnership(address newOwner) external virtual onlyOwner {
+        if (newOwner == address(0) || newOwner == address(this)) {
+            revert InvalidOwner(newOwner);
+        }
+        _transferOwnership(newOwner);
     }
 
     /**
@@ -156,18 +199,6 @@ contract LightAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, Cus
      */
     function withdrawDepositTo(address payable withdrawAddress, uint256 amount) public onlyOwner {
         entryPoint().withdrawTo(withdrawAddress, amount);
-    }
-
-    /**
-     * @notice Transfers ownership of the contract to a new account (`newOwner`).
-     * Can only be called by the current owner or from the entry point via a
-     * user operation signed by the current owner.
-     * @param newOwner The new owner
-     */
-    function transferOwnership(address newOwner) public virtual onlyOwner {
-        require(newOwner != address(0), "account: new owner is the zero address");
-        require(newOwner != address(this), "account: new owner is self");
-        _transferOwnership(newOwner);
     }
 
     /// @inheritdoc BaseAccount
@@ -252,12 +283,16 @@ contract LightAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, Cus
 
     function _onlyOwner() internal view {
         //directly from EOA owner, or through the account itself (which gets redirected through execute())
-        require(msg.sender == owner() || msg.sender == address(this), "only owner");
+        if (msg.sender != address(this) && msg.sender != owner()) {
+            revert NotAuthorized(msg.sender);
+        }
     }
 
     // Require the function call went through EntryPoint or owner
     function _requireFromEntryPointOrOwner() internal view {
-        require(msg.sender == address(entryPoint()) || msg.sender == owner(), "account: not Owner or EntryPoint");
+        if (msg.sender != address(entryPoint()) && msg.sender != owner()) {
+            revert NotAuthorized(msg.sender);
+        }
     }
 
     function _call(address target, uint256 value, bytes memory data) internal {
