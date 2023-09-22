@@ -66,7 +66,7 @@ abstract contract CustomSlotInitializable {
          * @dev Indicates that the contract has been initialized.
          * @custom:oz-retyped-from bool
          */
-        uint8 initialized;
+        uint64 initialized;
         /**
          * @dev Indicates that the contract is in the process of being initialized.
          */
@@ -76,7 +76,7 @@ abstract contract CustomSlotInitializable {
     /**
      * @dev Triggered when the contract has been initialized or reinitialized.
      */
-    event Initialized(uint8 version);
+    event Initialized(uint64 version);
 
     constructor(bytes32 storagePosition) {
         _storagePosition = storagePosition;
@@ -128,7 +128,7 @@ abstract contract CustomSlotInitializable {
      *
      * Emits an {Initialized} event.
      */
-    modifier reinitializer(uint8 version) {
+    modifier reinitializer(uint64 version) {
         CustomSlotInitializableStorage storage _storage = _getInitialiazableStorage();
         require(
             !_storage.initializing && _storage.initialized < version, "Initializable: contract is already initialized"
@@ -160,16 +160,16 @@ abstract contract CustomSlotInitializable {
     function _disableInitializers() internal virtual {
         CustomSlotInitializableStorage storage _storage = _getInitialiazableStorage();
         require(!_storage.initializing, "Initializable: contract is initializing");
-        if (_storage.initialized != type(uint8).max) {
-            _storage.initialized = type(uint8).max;
-            emit Initialized(type(uint8).max);
+        if (_storage.initialized != type(uint64).max) {
+            _storage.initialized = type(uint64).max;
+            emit Initialized(type(uint64).max);
         }
     }
 
     /**
      * @dev Returns the highest version that has been initialized. See {reinitializer}.
      */
-    function _getInitializedVersion() internal view returns (uint8) {
+    function _getInitializedVersion() internal view returns (uint64) {
         return _getInitialiazableStorage().initialized;
     }
 

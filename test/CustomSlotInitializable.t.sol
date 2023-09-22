@@ -11,7 +11,7 @@ import {CustomSlotInitializable} from "../src/CustomSlotInitializable.sol";
 contract CustomSlotInitializableTest is Test {
     using stdStorage for StdStorage;
 
-    event Initialized(uint8 version);
+    event Initialized(uint64 version);
 
     address v1Impl;
     address v2Impl;
@@ -74,7 +74,7 @@ contract CustomSlotInitializableTest is Test {
 contract V1 is CustomSlotInitializable(keccak256("storage")), UUPSUpgradeable {
     function initialize() public initializer {}
 
-    function getInitializedVersion() public view returns (uint8) {
+    function getInitializedVersion() public view returns (uint64) {
         return _getInitializedVersion();
     }
 
@@ -90,7 +90,7 @@ contract V1 is CustomSlotInitializable(keccak256("storage")), UUPSUpgradeable {
 contract V2 is CustomSlotInitializable(keccak256("storage")), UUPSUpgradeable {
     function initialize() public reinitializer(2) {}
 
-    function getInitializedVersion() public view returns (uint8) {
+    function getInitializedVersion() public view returns (uint64) {
         return _getInitializedVersion();
     }
 
