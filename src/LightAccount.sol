@@ -82,8 +82,8 @@ contract LightAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, Cus
     error ArrayLengthMismatch();
 
     /**
-     * @dev The new owner is not a valid owner (e.g., `address(0)` or the
-     * account itself).
+     * @dev The new owner is not a valid owner (e.g., `address(0)`, the
+     * account itself, or the current owner).
      */
     error InvalidOwner(address owner);
 
@@ -239,6 +239,9 @@ contract LightAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, Cus
     }
 
     function _initialize(address anOwner) internal virtual {
+        if (anOwner == address(0)) {
+            revert InvalidOwner(address(0));
+        }
         _getStorage().owner = anOwner;
         emit LightAccountInitialized(_entryPoint, anOwner);
         emit OwnershipTransferred(address(0), anOwner);
@@ -251,6 +254,9 @@ contract LightAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, Cus
     function _transferOwnership(address newOwner) internal virtual {
         LightAccountStorage storage _storage = _getStorage();
         address oldOwner = _storage.owner;
+        if (newOwner == oldOwner) {
+            revert InvalidOwner(newOwner);
+        }
         _storage.owner = newOwner;
         emit OwnershipTransferred(oldOwner, newOwner);
     }
