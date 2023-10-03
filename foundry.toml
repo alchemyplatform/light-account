@@ -7,7 +7,7 @@ out = 'out'
 test = 'test'
 libs = ['lib']
 optimizer = true
-optimizer_runs = 10_000
+optimizer_runs = 10_000_000
 
 [fuzz]
 runs = 5000
