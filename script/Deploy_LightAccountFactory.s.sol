@@ -7,8 +7,8 @@ import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
 
 import {LightAccountFactory} from "../src/LightAccountFactory.sol";
 
-// @notice Deploys LightAccountFactory to the address `0x006A000bb900dC0781A5290e210F000000e92200`
-// @dev Note: EntryPoint must be at 0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789
+// @notice Deploys LightAccountFactory to the address `0x000000893A26168158fbeaDD9335Be5bC96592E2`
+// @dev Note: Script uses EntryPoint at address 0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789
 // @dev To run: `forge script script/Deploy_LightAccountFactory.s.sol:Deploy_LightAccountFactory --broadcast --rpc-url ${RPC_URL} --verify -vvvv`
 contract Deploy_LightAccountFactory is Script {
     error InitCodeHashMismatch(bytes32 initCodeHash);
