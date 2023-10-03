@@ -15,9 +15,7 @@ contract Deploy_LightAccountFactory is Script {
     error DeployedAddressMismatch(address deployed);
 
     function run() public {
-        uint256 deployerPrivateKey = uint256(vm.envBytes32("DEPLOYER_PRIVATE_KEY"));
-
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
 
         // Using entryPoint: 0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789
         // Correct as of Oct 3 2023, from https://docs.alchemy.com/reference/eth-supportedentrypoints
