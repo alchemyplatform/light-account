@@ -1,8 +1,10 @@
 # Light Account
 
-A simple ERC-4337 compatible smart contract account with a designated owner account.
+A simple ERC-4337 compatible smart contract account with a designated owner account. [Account Kit](https://accountkit.alchemy.com/introduction.html) is the easiest way to integrate Light Account.
 
-Like [eth-infinitism](https://github.com/eth-infinitism/account-abstraction)'s `SimpleAccount`, but with the following changes:
+## Features
+
+Like [eth-infinitism](https://github.com/eth-infinitism/account-abstraction)'s [`SimpleAccount`](https://github.com/eth-infinitism/account-abstraction/blob/develop/contracts/samples/SimpleAccount.sol), but with the following changes:
 
 1. Instead of the default storage slots, uses namespaced storage to avoid clashes when switching implementations.
 
@@ -37,7 +39,7 @@ forge test -vvv
 The deploy script supports any [wallet options](https://book.getfoundry.sh/reference/forge/forge-script#wallet-options---raw) provided by Foundry, including local private keys, mneumonics, hardware wallets, and remote signers. Append the chosen signing method's option to the field marked `[WALLET_OPTION]` in the following script command, and set the sender address in the field `[SENDER_ADDRESS]`.
 
 ```bash
-forge script script/Deploy_LightAccountFactory.s.sol:Deploy_LightAccountFactory [WALLET_OPTION] --sender [SENDER_ADDRESS]--rpc-url [RPC_URL] -vvvv --broadcast --verify 
+forge script script/Deploy_LightAccountFactory.s.sol:Deploy_LightAccountFactory [WALLET_OPTION] --sender [SENDER_ADDRESS]--rpc-url [RPC_URL] -vvvv --broadcast --verify
 ```
 
 Make sure the provided `RPC_URL` is set to an RPC for the chain you wish to deploy on.
