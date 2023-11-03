@@ -58,6 +58,13 @@ contract LightAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, Cus
     // bytes4(keccak256("isValidSignature(bytes32,bytes)"))
     bytes4 internal constant _1271_MAGIC_VALUE = 0x1626ba7e;
     IEntryPoint private immutable _entryPoint;
+    // keccak256(
+    //     "EIP712Domain(uint256 chainId,address verifyingContract)"
+    // );
+    bytes32 private constant DOMAIN_SEPARATOR_TYPEHASH =
+        0x47e79534a245952e8b16893a336b85a3d9ea9fa8c573f3d803afb92a79469218;
+    // keccak256("LightAccountMessage(bytes message)");
+    bytes32 private constant LA_MSG_TYPEHASH = 0x5e3baca2936049843f06038876a12f03627b5edc98025751ecf2ac7562640199;
 
     struct LightAccountStorage {
         address owner;
@@ -225,6 +232,41 @@ contract LightAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, Cus
     }
 
     /**
+     * @notice Returns the domain separator for this contract, as defined in the EIP-712 standard.
+     * @return bytes32 The domain separator hash.
+     */
+    function domainSeparator() public view returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                DOMAIN_SEPARATOR_TYPEHASH,
+                abi.encode("LightAccount"), // name
+                abi.encode("1"), // version
+                block.chainid, // chainId
+                address(this) // verifying contract
+            )
+        );
+    }
+
+    /**
+     * @notice Returns the pre-image of the message hash
+     * @param message Message that should be encoded.
+     * @return Encoded message.
+     */
+    function encodeMessageData(bytes memory message) public view returns (bytes memory) {
+        bytes32 messageHash = keccak256(abi.encode(LA_MSG_TYPEHASH, keccak256(message)));
+        return abi.encodePacked("\x19\x01", domainSeparator(), messageHash);
+    }
+
+    /**
+     * @notice Returns hash of a message that can be signed by owners.
+     * @param message Message that should be hashed.
+     * @return Message hash.
+     */
+    function getMessageHash(bytes memory message) public view returns (bytes32) {
+        return keccak256(encodeMessageData(message));
+    }
+
+    /**
      * @dev The signature is valid if it is signed by the owner's private key
      * (if the owner is an EOA) or if it is a valid ERC-1271 signature from the
      * owner (if the owner is a contract). Note that unlike the signature
@@ -234,7 +276,9 @@ contract LightAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, Cus
      * @inheritdoc IERC1271
      */
     function isValidSignature(bytes32 digest, bytes memory signature) public view override returns (bytes4) {
-        if (SignatureChecker.isValidSignatureNow(owner(), digest, signature)) {
+        bytes memory messageData = encodeMessageData(abi.encode(digest));
+        bytes32 messageHash = keccak256(messageData);
+        if (SignatureChecker.isValidSignatureNow(owner(), messageHash, signature)) {
             return _1271_MAGIC_VALUE;
         }
         return 0xffffffff;

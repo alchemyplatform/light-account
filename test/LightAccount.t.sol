@@ -223,20 +223,20 @@ contract LightAccountTest is Test {
 
     function testIsValidSignatureForEoaOwner() public {
         bytes32 digest = keccak256("digest");
-        bytes memory signature = _sign(EOA_PRIVATE_KEY, digest);
+        bytes memory signature = _sign(EOA_PRIVATE_KEY, account.getMessageHash(abi.encode(digest)));
         assertEq(account.isValidSignature(digest, signature), bytes4(keccak256("isValidSignature(bytes32,bytes)")));
     }
 
     function testIsValidSignatureForContractOwner() public {
         _useContractOwner();
         bytes32 digest = keccak256("digest");
-        bytes memory signature = contractOwner.sign(digest);
+        bytes memory signature = contractOwner.sign(account.getMessageHash(abi.encode(digest)));
         assertEq(account.isValidSignature(digest, signature), bytes4(keccak256("isValidSignature(bytes32,bytes)")));
     }
 
     function testIsValidSignatureRejectsInvalid() public {
         bytes32 digest = keccak256("digest");
-        bytes memory signature = _sign(123, digest);
+        bytes memory signature = _sign(123, account.getMessageHash(abi.encode(digest)));
         assertEq(account.isValidSignature(digest, signature), bytes4(0xffffffff));
     }
 
@@ -285,7 +285,7 @@ contract LightAccountTest is Test {
                     bytes32(uint256(uint160(0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789)))
                 )
             ),
-            0x3043a72812fec9b9987853a9b869c1a469dc6e04b0f80da3af2ecb8cf8eed209
+            0x08e92270ef11b274ba72e946be8f8354062a3320a6c91d522e7437299d96104b
         );
     }
 
