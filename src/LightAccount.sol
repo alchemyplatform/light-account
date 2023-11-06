@@ -58,11 +58,9 @@ contract LightAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, Cus
     // bytes4(keccak256("isValidSignature(bytes32,bytes)"))
     bytes4 internal constant _1271_MAGIC_VALUE = 0x1626ba7e;
     IEntryPoint private immutable _entryPoint;
-    // keccak256(
-    //     "EIP712Domain(uint256 chainId,address verifyingContract)"
-    // );
+    // keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")
     bytes32 private constant DOMAIN_SEPARATOR_TYPEHASH =
-        0x47e79534a245952e8b16893a336b85a3d9ea9fa8c573f3d803afb92a79469218;
+        0x8b73c3c69bb8fe3d512ecc4cf759cc79239f7b179b0ffacaa9a75d522b39400f;
     // keccak256("LightAccountMessage(bytes message)");
     bytes32 private constant LA_MSG_TYPEHASH = 0x5e3baca2936049843f06038876a12f03627b5edc98025751ecf2ac7562640199;
 
