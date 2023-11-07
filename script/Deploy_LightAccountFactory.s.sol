@@ -7,7 +7,7 @@ import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
 
 import {LightAccountFactory} from "../src/LightAccountFactory.sol";
 
-// @notice Deploys LightAccountFactory to the address `0x000000893A26168158fbeaDD9335Be5bC96592E2`
+// @notice Deploys LightAccountFactory to the address `0x00000055C0b4fA41dde26A74435ff03692292FBD`
 // @dev Note: Script uses EntryPoint at address 0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789
 // @dev To run: `forge script script/Deploy_LightAccountFactory.s.sol:Deploy_LightAccountFactory --broadcast --rpc-url ${RPC_URL} --verify -vvvv`
 contract Deploy_LightAccountFactory is Script {
@@ -40,10 +40,10 @@ contract Deploy_LightAccountFactory is Script {
         console.log("********************************");
 
         LightAccountFactory factory =
-        new LightAccountFactory{salt: 0x00000000000000000000000000000000000000007845d3459c316000001d6f83}(entryPoint);
+        new LightAccountFactory{salt: 0x4e59b44847b379578588920ca78fbf26c0b4956c3406f3bdc271500000c2f72f}(entryPoint);
 
         // Deployed address check
-        if (address(factory) != 0x000000893A26168158fbeaDD9335Be5bC96592E2) {
+        if (address(factory) != 0x00000055C0b4fA41dde26A74435ff03692292FBD) {
             revert DeployedAddressMismatch(address(factory));
         }
 
