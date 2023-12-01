@@ -1,6 +1,6 @@
 # Light Account
 
-A simple ERC-4337 compatible smart contract account with a designated owner account. [Account Kit](https://accountkit.alchemy.com/introduction.html) is the easiest way to integrate Light Account.
+A simple ERC-4337 compatible smart contract account with a designated owner account. [Account Kit](https://accountkit.alchemy.com/overview/introduction.html) is the easiest way to integrate Light Account.
 
 ## Features
 
