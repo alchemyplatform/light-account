@@ -38,9 +38,8 @@ contract LightAccountFactory {
         }
         ret = LightAccount(
             payable(
-                new ERC1967Proxy{salt : bytes32(salt)}(
-                    address(accountImplementation),
-                    abi.encodeCall(LightAccount.initialize, (owner))
+                new ERC1967Proxy{salt: bytes32(salt)}(
+                    address(accountImplementation), abi.encodeCall(LightAccount.initialize, (owner))
                 )
             )
         );

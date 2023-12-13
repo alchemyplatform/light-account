@@ -39,8 +39,9 @@ contract Deploy_LightAccountFactory is Script {
         console.log("******** Deploy ...... *********");
         console.log("********************************");
 
-        LightAccountFactory factory =
-        new LightAccountFactory{salt: 0x4e59b44847b379578588920ca78fbf26c0b4956c3406f3bdc271500000c2f72f}(entryPoint);
+        LightAccountFactory factory = new LightAccountFactory{
+            salt: 0x4e59b44847b379578588920ca78fbf26c0b4956c3406f3bdc271500000c2f72f
+        }(entryPoint);
 
         // Deployed address check
         if (address(factory) != 0x00000055C0b4fA41dde26A74435ff03692292FBD) {

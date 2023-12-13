@@ -63,6 +63,8 @@ contract LightAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, Cus
         0x8b73c3c69bb8fe3d512ecc4cf759cc79239f7b179b0ffacaa9a75d522b39400f;
     // keccak256("LightAccountMessage(bytes message)");
     bytes32 private constant LA_MSG_TYPEHASH = 0x5e3baca2936049843f06038876a12f03627b5edc98025751ecf2ac7562640199;
+    bytes32 private constant _NAME_HASH = keccak256(bytes("LightAccount"));
+    bytes32 private constant _VERSION_HASH = keccak256(bytes("1"));
 
     struct LightAccountStorage {
         address owner;
@@ -237,8 +239,8 @@ contract LightAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, Cus
         return keccak256(
             abi.encode(
                 DOMAIN_SEPARATOR_TYPEHASH,
-                abi.encode("LightAccount"), // name
-                abi.encode("1"), // version
+                _NAME_HASH, // name
+                _VERSION_HASH, // version
                 block.chainid, // chainId
                 address(this) // verifying contract
             )
