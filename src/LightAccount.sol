@@ -58,13 +58,11 @@ contract LightAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, Cus
     // bytes4(keccak256("isValidSignature(bytes32,bytes)"))
     bytes4 internal constant _1271_MAGIC_VALUE = 0x1626ba7e;
     IEntryPoint private immutable _ENTRY_POINT;
-    // keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")
     bytes32 private constant _DOMAIN_SEPARATOR_TYPEHASH =
-        0x8b73c3c69bb8fe3d512ecc4cf759cc79239f7b179b0ffacaa9a75d522b39400f;
-    // keccak256("LightAccountMessage(bytes message)");
-    bytes32 private constant _LA_MSG_TYPEHASH = 0x5e3baca2936049843f06038876a12f03627b5edc98025751ecf2ac7562640199;
-    bytes32 private constant _NAME_HASH = keccak256(bytes("LightAccount"));
-    bytes32 private constant _VERSION_HASH = keccak256(bytes("1"));
+        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+    bytes32 private constant _LA_MSG_TYPEHASH = keccak256("LightAccountMessage(bytes message)");
+    bytes32 private constant _NAME_HASH = keccak256("LightAccount");
+    bytes32 private constant _VERSION_HASH = keccak256("1");
 
     struct LightAccountStorage {
         address owner;
@@ -276,8 +274,7 @@ contract LightAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, Cus
      * @inheritdoc IERC1271
      */
     function isValidSignature(bytes32 digest, bytes memory signature) public view override returns (bytes4) {
-        bytes memory messageData = encodeMessageData(abi.encode(digest));
-        bytes32 messageHash = keccak256(messageData);
+        bytes32 messageHash = getMessageHash(abi.encode(digest));
         if (SignatureChecker.isValidSignatureNow(owner(), messageHash, signature)) {
             return _1271_MAGIC_VALUE;
         }

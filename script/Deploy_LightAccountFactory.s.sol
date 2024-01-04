@@ -26,7 +26,7 @@ contract Deploy_LightAccountFactory is Script {
             abi.encodePacked(type(LightAccountFactory).creationCode, bytes32(uint256(uint160(address(entryPoint)))))
         );
 
-        if (initCodeHash != 0x2ad62a8bb3850247ef0c4f04e30b584e6eee7caa0e063745e90956653b90eb84) {
+        if (initCodeHash != 0xd77df77274118ffc7c7b2edced505093b1f8695e3b5ced2b2fd2a5b27e4e2b78) {
             revert InitCodeHashMismatch(initCodeHash);
         }
 
