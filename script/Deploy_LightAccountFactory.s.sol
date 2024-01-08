@@ -26,7 +26,7 @@ contract Deploy_LightAccountFactory is Script {
             abi.encodePacked(type(LightAccountFactory).creationCode, bytes32(uint256(uint160(address(entryPoint)))))
         );
 
-        if (initCodeHash != 0x2ad62a8bb3850247ef0c4f04e30b584e6eee7caa0e063745e90956653b90eb84) {
+        if (initCodeHash != 0xd77df77274118ffc7c7b2edced505093b1f8695e3b5ced2b2fd2a5b27e4e2b78) {
             revert InitCodeHashMismatch(initCodeHash);
         }
 
@@ -39,8 +39,9 @@ contract Deploy_LightAccountFactory is Script {
         console.log("******** Deploy ...... *********");
         console.log("********************************");
 
-        LightAccountFactory factory =
-        new LightAccountFactory{salt: 0x4e59b44847b379578588920ca78fbf26c0b4956c3406f3bdc271500000c2f72f}(entryPoint);
+        LightAccountFactory factory = new LightAccountFactory{
+            salt: 0x4e59b44847b379578588920ca78fbf26c0b4956c3406f3bdc271500000c2f72f
+        }(entryPoint);
 
         // Deployed address check
         if (address(factory) != 0x00000055C0b4fA41dde26A74435ff03692292FBD) {
