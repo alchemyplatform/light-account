@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.23;
 
 /* solhint-disable avoid-low-level-calls */
 /* solhint-disable no-inline-assembly */
@@ -8,11 +8,13 @@ pragma solidity ^0.8.21;
 import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
 import {BaseAccount} from "account-abstraction/core/BaseAccount.sol";
+import {SIG_VALIDATION_FAILED} from "account-abstraction/core/Helpers.sol";
 import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
-import {UserOperation} from "account-abstraction/interfaces/UserOperation.sol";
+import {PackedUserOperation} from "account-abstraction/interfaces/PackedUserOperation.sol";
 import {TokenCallbackHandler} from "account-abstraction/samples/callback/TokenCallbackHandler.sol";
 
 import {CustomSlotInitializable} from "./CustomSlotInitializable.sol";
@@ -49,6 +51,7 @@ import {CustomSlotInitializable} from "./CustomSlotInitializable.sol";
  */
 contract LightAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, CustomSlotInitializable, IERC1271 {
     using ECDSA for bytes32;
+    using MessageHashUtils for bytes32;
 
     // keccak256(abi.encode(uint256(keccak256("light_account_v1.storage")) - 1)) & ~bytes32(uint256(0xff));
     bytes32 internal constant _STORAGE_POSITION = 0x691ec1a18226d004c07c9f8e5c4a6ff15a7b38db267cf7e3c945aef8be512200;
@@ -311,7 +314,7 @@ contract LightAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, Cus
      * which the digest is wrapped with an "Ethereum Signed Message" envelope
      * for the EOA-owner case but not in the ERC-1271 contract-owner case.
      */
-    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
+    function _validateSignature(PackedUserOperation calldata userOp, bytes32 userOpHash)
         internal
         virtual
         override
@@ -320,7 +323,7 @@ contract LightAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, Cus
         address _owner = owner();
         bytes32 signedHash = userOpHash.toEthSignedMessageHash();
         bytes memory signature = userOp.signature;
-        (address recovered, ECDSA.RecoverError error) = signedHash.tryRecover(signature);
+        (address recovered, ECDSA.RecoverError error,) = signedHash.tryRecover(signature);
         if (
             (error == ECDSA.RecoverError.NoError && recovered == _owner)
                 || SignatureChecker.isValidERC1271SignatureNow(_owner, userOpHash, signature)

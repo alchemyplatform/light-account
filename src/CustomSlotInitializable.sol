@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // OpenZeppelin Contracts (last updated v4.9.0) (proxy/utils/Initializable.sol)
 
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.23;
 
 /**
  * @dev Identical to OpenZeppelin's `Initializable`, except that its state variables are kept at a custom storage slot
