@@ -12,6 +12,7 @@ import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
 import {PackedUserOperation} from "account-abstraction/interfaces/PackedUserOperation.sol";
 import {SimpleAccount} from "account-abstraction/samples/SimpleAccount.sol";
 
+import {BaseLightAccount} from "../src/common/BaseLightAccount.sol";
 import {LightAccount} from "../src/LightAccount.sol";
 import {LightAccountFactory} from "../src/LightAccountFactory.sol";
 
@@ -84,7 +85,7 @@ contract LightAccountTest is Test {
     }
 
     function testExecuteCannotBeCalledByRandos() public {
-        vm.expectRevert(abi.encodeWithSelector(LightAccount.NotAuthorized.selector, (address(this))));
+        vm.expectRevert(abi.encodeWithSelector(BaseLightAccount.NotAuthorized.selector, (address(this))));
         account.execute(address(lightSwitch), 0, abi.encodeCall(LightSwitch.turnOn, ()));
     }
 
@@ -112,7 +113,7 @@ contract LightAccountTest is Test {
         dest[1] = address(lightSwitch);
         bytes[] memory func = new bytes[](1);
         func[0] = abi.encodeCall(LightSwitch.turnOn, ());
-        vm.expectRevert(LightAccount.ArrayLengthMismatch.selector);
+        vm.expectRevert(BaseLightAccount.ArrayLengthMismatch.selector);
         account.executeBatch(dest, func);
     }
 
@@ -138,7 +139,7 @@ contract LightAccountTest is Test {
         value[1] = uint256(1 ether);
         bytes[] memory func = new bytes[](1);
         func[0] = abi.encodeCall(LightSwitch.turnOn, ());
-        vm.expectRevert(LightAccount.ArrayLengthMismatch.selector);
+        vm.expectRevert(BaseLightAccount.ArrayLengthMismatch.selector);
         account.executeBatch(dest, value, func);
     }
 
@@ -171,7 +172,7 @@ contract LightAccountTest is Test {
 
     function testWithdrawDepositToCannotBeCalledByRandos() public {
         account.addDeposit{value: 10}();
-        vm.expectRevert(abi.encodeWithSelector(LightAccount.NotAuthorized.selector, (address(this))));
+        vm.expectRevert(abi.encodeWithSelector(BaseLightAccount.NotAuthorized.selector, (address(this))));
         account.withdrawDepositTo(BENEFICIARY, 5);
     }
 
@@ -197,7 +198,7 @@ contract LightAccountTest is Test {
     }
 
     function testRandosCannotTransferOwnership() public {
-        vm.expectRevert(abi.encodeWithSelector(LightAccount.NotAuthorized.selector, (address(this))));
+        vm.expectRevert(abi.encodeWithSelector(BaseLightAccount.NotAuthorized.selector, (address(this))));
         account.transferOwnership(address(0x100));
     }
 
@@ -258,7 +259,7 @@ contract LightAccountTest is Test {
         // Try to upgrade to a normal SimpleAccount with a different entry point.
         IEntryPoint newEntryPoint = IEntryPoint(address(0x2000));
         SimpleAccount newImplementation = new SimpleAccount(newEntryPoint);
-        vm.expectRevert(abi.encodeWithSelector(LightAccount.NotAuthorized.selector, (address(this))));
+        vm.expectRevert(abi.encodeWithSelector(BaseLightAccount.NotAuthorized.selector, (address(this))));
         account.upgradeToAndCall(address(newImplementation), abi.encodeCall(SimpleAccount.initialize, (address(this))));
     }
 
@@ -287,7 +288,7 @@ contract LightAccountTest is Test {
                     bytes32(uint256(uint160(0x0000000071727De22E5E9d8BAf0edAc6f37da032)))
                 )
             ),
-            0x3bc154d32c096215e957ca99af52e83275464261e8cbe90d8da1df052c89947a
+            0x366526c31a9f3ae63f66515d13f8e6888fe6edac9bc95296cb53e68006ad9888
         );
     }
 
@@ -309,7 +310,7 @@ contract LightAccountTest is Test {
             sender: address(account),
             nonce: 0,
             initCode: "",
-            callData: abi.encodeCall(LightAccount.execute, (target, 0, innerCallData)),
+            callData: abi.encodeCall(BaseLightAccount.execute, (target, 0, innerCallData)),
             accountGasLimits: bytes32(uint256(verificationGasLimit) << 128 | callGasLimit),
             preVerificationGas: 1 << 24,
             gasFees: bytes32(uint256(maxPriorityFeePerGas) << 128 | maxFeePerGas),
