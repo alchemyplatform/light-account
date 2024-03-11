@@ -330,7 +330,7 @@ contract MultiOwnerLightAccountTest is Test {
                     bytes32(uint256(uint160(0x0000000071727De22E5E9d8BAf0edAc6f37da032)))
                 )
             ),
-            0x48a98b19a2130ad0b8bf369ce1f6205eb3dbf67aedf5b412d00a1686b87d3e4f
+            0x7016bedb9dcfa8db776c0f17f2118c3dbc61c14351f845f2014befa061e973dd
         );
     }
 
