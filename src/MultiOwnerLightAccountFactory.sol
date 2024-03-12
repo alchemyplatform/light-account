@@ -87,7 +87,8 @@ contract MultiOwnerLightAccountFactory {
         );
     }
 
-    /// @dev `owners` must be in strictly ascending order and not include the 0 address. Its length must not be empty
+    /// @dev `owners` must be in strictly ascending order and not include the 0 address. The ordering requirement
+    /// ensures a canonical counterfactual for a given set of initial owners. Also, its length must not be empty
     /// and not exceed `_MAX_OWNERS_ON_CREATION`.
     /// @param owners Array of owner addresses.
     function _validateOwnersArray(address[] memory owners) internal pure {
