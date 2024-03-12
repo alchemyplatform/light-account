@@ -6,7 +6,7 @@ import "forge-std/Test.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
-import {CustomSlotInitializable} from "../src/CustomSlotInitializable.sol";
+import {CustomSlotInitializable} from "../src/common/CustomSlotInitializable.sol";
 
 contract CustomSlotInitializableTest is Test {
     using stdStorage for StdStorage;

@@ -13,6 +13,7 @@ import {SimpleAccount} from "account-abstraction/samples/SimpleAccount.sol";
 import {SENTINEL_VALUE} from "modular-account/libraries/Constants.sol";
 import {LinkedListSet, LinkedListSetLib} from "modular-account/libraries/LinkedListSetLib.sol";
 
+import {BaseLightAccount} from "../src/common/BaseLightAccount.sol";
 import {MultiOwnerLightAccount} from "../src/MultiOwnerLightAccount.sol";
 import {MultiOwnerLightAccountFactory} from "../src/MultiOwnerLightAccountFactory.sol";
 
@@ -86,7 +87,7 @@ contract MultiOwnerLightAccountTest is Test {
     }
 
     function testExecuteCannotBeCalledByRandos() public {
-        vm.expectRevert(abi.encodeWithSelector(MultiOwnerLightAccount.NotAuthorized.selector, (address(this))));
+        vm.expectRevert(abi.encodeWithSelector(BaseLightAccount.NotAuthorized.selector, (address(this))));
         account.execute(address(lightSwitch), 0, abi.encodeCall(LightSwitch.turnOn, ()));
     }
 
@@ -114,7 +115,7 @@ contract MultiOwnerLightAccountTest is Test {
         dest[1] = address(lightSwitch);
         bytes[] memory func = new bytes[](1);
         func[0] = abi.encodeCall(LightSwitch.turnOn, ());
-        vm.expectRevert(MultiOwnerLightAccount.ArrayLengthMismatch.selector);
+        vm.expectRevert(BaseLightAccount.ArrayLengthMismatch.selector);
         account.executeBatch(dest, func);
     }
 
@@ -140,7 +141,7 @@ contract MultiOwnerLightAccountTest is Test {
         value[1] = uint256(1 ether);
         bytes[] memory func = new bytes[](1);
         func[0] = abi.encodeCall(LightSwitch.turnOn, ());
-        vm.expectRevert(MultiOwnerLightAccount.ArrayLengthMismatch.selector);
+        vm.expectRevert(BaseLightAccount.ArrayLengthMismatch.selector);
         account.executeBatch(dest, value, func);
     }
 
@@ -173,7 +174,7 @@ contract MultiOwnerLightAccountTest is Test {
 
     function testWithdrawDepositToCannotBeCalledByRandos() public {
         account.addDeposit{value: 10}();
-        vm.expectRevert(abi.encodeWithSelector(MultiOwnerLightAccount.NotAuthorized.selector, (address(this))));
+        vm.expectRevert(abi.encodeWithSelector(BaseLightAccount.NotAuthorized.selector, (address(this))));
         account.withdrawDepositTo(BENEFICIARY, 5);
     }
 
@@ -211,7 +212,7 @@ contract MultiOwnerLightAccountTest is Test {
     function testRandosCannotUpdateOwners() public {
         address[] memory ownersToAdd = new address[](1);
         ownersToAdd[0] = address(0x100);
-        vm.expectRevert(abi.encodeWithSelector(MultiOwnerLightAccount.NotAuthorized.selector, (address(this))));
+        vm.expectRevert(abi.encodeWithSelector(BaseLightAccount.NotAuthorized.selector, (address(this))));
         account.updateOwners(ownersToAdd, new address[](0));
     }
 
@@ -299,7 +300,7 @@ contract MultiOwnerLightAccountTest is Test {
         // Try to upgrade to a normal SimpleAccount with a different entry point.
         IEntryPoint newEntryPoint = IEntryPoint(address(0x2000));
         SimpleAccount newImplementation = new SimpleAccount(newEntryPoint);
-        vm.expectRevert(abi.encodeWithSelector(MultiOwnerLightAccount.NotAuthorized.selector, (address(this))));
+        vm.expectRevert(abi.encodeWithSelector(BaseLightAccount.NotAuthorized.selector, (address(this))));
         account.upgradeToAndCall(address(newImplementation), abi.encodeCall(SimpleAccount.initialize, (address(this))));
     }
 
@@ -329,7 +330,7 @@ contract MultiOwnerLightAccountTest is Test {
                     bytes32(uint256(uint160(0x0000000071727De22E5E9d8BAf0edAc6f37da032)))
                 )
             ),
-            0x13b72a4d0723d9429d9c149d74e8355c44fc38752d581d4f27c99f4cf749e62c
+            0xcb9592a573d51d2b1e5d7fb8e2f8cbe547a5f1a680e5566c1d619fcb767f1fb7
         );
     }
 
@@ -355,7 +356,7 @@ contract MultiOwnerLightAccountTest is Test {
             sender: address(account),
             nonce: 0,
             initCode: "",
-            callData: abi.encodeCall(MultiOwnerLightAccount.execute, (target, 0, innerCallData)),
+            callData: abi.encodeCall(BaseLightAccount.execute, (target, 0, innerCallData)),
             accountGasLimits: bytes32(uint256(verificationGasLimit) << 128 | callGasLimit),
             preVerificationGas: 1 << 24,
             gasFees: bytes32(uint256(maxPriorityFeePerGas) << 128 | maxFeePerGas),
