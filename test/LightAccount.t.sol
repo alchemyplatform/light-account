@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.21;
+pragma solidity ^0.8.23;
 
 import "forge-std/Test.sol";
 
 import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 import {EntryPoint} from "account-abstraction/core/EntryPoint.sol";
 import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
-import {UserOperation} from "account-abstraction/interfaces/UserOperation.sol";
+import {PackedUserOperation} from "account-abstraction/interfaces/PackedUserOperation.sol";
 import {SimpleAccount} from "account-abstraction/samples/SimpleAccount.sol";
 
 import {LightAccount} from "../src/LightAccount.sol";
@@ -17,6 +18,7 @@ import {LightAccountFactory} from "../src/LightAccountFactory.sol";
 contract LightAccountTest is Test {
     using stdStorage for StdStorage;
     using ECDSA for bytes32;
+    using MessageHashUtils for bytes32;
 
     uint256 public constant EOA_PRIVATE_KEY = 1;
     address payable public constant BENEFICIARY = payable(address(0xbe9ef1c1a2ee));
@@ -55,9 +57,9 @@ contract LightAccountTest is Test {
     }
 
     function testExecuteCanBeCalledByEntryPointWithExternalOwner() public {
-        UserOperation memory op =
+        PackedUserOperation memory op =
             _getSignedOp(address(lightSwitch), abi.encodeCall(LightSwitch.turnOn, ()), EOA_PRIVATE_KEY);
-        UserOperation[] memory ops = new UserOperation[](1);
+        PackedUserOperation[] memory ops = new PackedUserOperation[](1);
         ops[0] = op;
         entryPoint.handleOps(ops, BENEFICIARY);
         assertTrue(lightSwitch.on());
@@ -65,17 +67,17 @@ contract LightAccountTest is Test {
 
     function testExecutedCanBeCalledByEntryPointWithContractOwner() public {
         _useContractOwner();
-        UserOperation memory op = _getUnsignedOp(address(lightSwitch), abi.encodeCall(LightSwitch.turnOn, ()));
+        PackedUserOperation memory op = _getUnsignedOp(address(lightSwitch), abi.encodeCall(LightSwitch.turnOn, ()));
         op.signature = contractOwner.sign(entryPoint.getUserOpHash(op));
-        UserOperation[] memory ops = new UserOperation[](1);
+        PackedUserOperation[] memory ops = new PackedUserOperation[](1);
         ops[0] = op;
         entryPoint.handleOps(ops, BENEFICIARY);
         assertTrue(lightSwitch.on());
     }
 
     function testRejectsUserOpsWithInvalidSignature() public {
-        UserOperation memory op = _getSignedOp(address(lightSwitch), abi.encodeCall(LightSwitch.turnOn, ()), 1234);
-        UserOperation[] memory ops = new UserOperation[](1);
+        PackedUserOperation memory op = _getSignedOp(address(lightSwitch), abi.encodeCall(LightSwitch.turnOn, ()), 1234);
+        PackedUserOperation[] memory ops = new PackedUserOperation[](1);
         ops[0] = op;
         vm.expectRevert(abi.encodeWithSelector(IEntryPoint.FailedOp.selector, 0, "AA24 signature error"));
         entryPoint.handleOps(ops, BENEFICIARY);
@@ -184,9 +186,9 @@ contract LightAccountTest is Test {
 
     function testEntryPointCanTransferOwnership() public {
         address newOwner = address(0x100);
-        UserOperation memory op =
+        PackedUserOperation memory op =
             _getSignedOp(address(account), abi.encodeCall(LightAccount.transferOwnership, (newOwner)), EOA_PRIVATE_KEY);
-        UserOperation[] memory ops = new UserOperation[](1);
+        PackedUserOperation[] memory ops = new PackedUserOperation[](1);
         ops[0] = op;
         vm.expectEmit(true, true, false, false);
         emit OwnershipTransferred(eoaAddress, newOwner);
@@ -282,10 +284,10 @@ contract LightAccountTest is Test {
             keccak256(
                 abi.encodePacked(
                     type(LightAccountFactory).creationCode,
-                    bytes32(uint256(uint160(0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789)))
+                    bytes32(uint256(uint160(0x0000000071727De22E5E9d8BAf0edAc6f37da032)))
                 )
             ),
-            0x23fb754854a6aa03057b1bae5d971963d92e534dc714fa59fff6c08a3617ba3e
+            0xbb16617edd0a177192b9a37ddb37f7783ae99a0cd21d53607df759ded54e024c
         );
     }
 
@@ -294,17 +296,23 @@ contract LightAccountTest is Test {
         account.transferOwnership(address(contractOwner));
     }
 
-    function _getUnsignedOp(address target, bytes memory innerCallData) internal view returns (UserOperation memory) {
-        return UserOperation({
+    function _getUnsignedOp(address target, bytes memory innerCallData)
+        internal
+        view
+        returns (PackedUserOperation memory)
+    {
+        uint128 verificationGasLimit = 1 << 24;
+        uint128 callGasLimit = 1 << 24;
+        uint128 maxPriorityFeePerGas = 1 << 8;
+        uint128 maxFeePerGas = 1 << 8;
+        return PackedUserOperation({
             sender: address(account),
             nonce: 0,
             initCode: "",
             callData: abi.encodeCall(LightAccount.execute, (target, 0, innerCallData)),
-            callGasLimit: 1 << 24,
-            verificationGasLimit: 1 << 24,
+            accountGasLimits: bytes32(uint256(verificationGasLimit) << 128 | callGasLimit),
             preVerificationGas: 1 << 24,
-            maxFeePerGas: 1 << 8,
-            maxPriorityFeePerGas: 1 << 8,
+            gasFees: bytes32(uint256(maxPriorityFeePerGas) << 128 | maxFeePerGas),
             paymasterAndData: "",
             signature: ""
         });
@@ -313,9 +321,9 @@ contract LightAccountTest is Test {
     function _getSignedOp(address target, bytes memory innerCallData, uint256 privateKey)
         internal
         view
-        returns (UserOperation memory)
+        returns (PackedUserOperation memory)
     {
-        UserOperation memory op = _getUnsignedOp(target, innerCallData);
+        PackedUserOperation memory op = _getUnsignedOp(target, innerCallData);
         op.signature = _sign(privateKey, entryPoint.getUserOpHash(op).toEthSignedMessageHash());
         return op;
     }
