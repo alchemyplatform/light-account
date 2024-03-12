@@ -6,38 +6,40 @@ import "forge-std/Test.sol";
 import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
-
 import {EntryPoint} from "account-abstraction/core/EntryPoint.sol";
 import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
 import {PackedUserOperation} from "account-abstraction/interfaces/PackedUserOperation.sol";
 import {SimpleAccount} from "account-abstraction/samples/SimpleAccount.sol";
+import {SENTINEL_VALUE} from "modular-account/libraries/Constants.sol";
+import {LinkedListSet, LinkedListSetLib} from "modular-account/libraries/LinkedListSetLib.sol";
 
-import {LightAccount} from "../src/LightAccount.sol";
-import {LightAccountFactory} from "../src/LightAccountFactory.sol";
+import {MultiOwnerLightAccount} from "../src/MultiOwnerLightAccount.sol";
+import {MultiOwnerLightAccountFactory} from "../src/MultiOwnerLightAccountFactory.sol";
 
-contract LightAccountTest is Test {
+contract MultiOwnerLightAccountTest is Test {
     using stdStorage for StdStorage;
     using ECDSA for bytes32;
     using MessageHashUtils for bytes32;
+    using LinkedListSetLib for LinkedListSet;
 
     uint256 public constant EOA_PRIVATE_KEY = 1;
     address payable public constant BENEFICIARY = payable(address(0xbe9ef1c1a2ee));
     address public eoaAddress;
-    LightAccount public account;
-    LightAccount public contractOwnedAccount;
+    MultiOwnerLightAccount public account;
+    MultiOwnerLightAccount public contractOwnedAccount;
     EntryPoint public entryPoint;
     LightSwitch public lightSwitch;
     Owner public contractOwner;
 
     event SimpleAccountInitialized(IEntryPoint indexed entryPoint, address indexed owner);
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event OwnersUpdated(address[] ownersToAdd, address[] ownersToRemove);
     event Initialized(uint64 version);
 
     function setUp() public {
         eoaAddress = vm.addr(EOA_PRIVATE_KEY);
         entryPoint = new EntryPoint();
-        LightAccountFactory factory = new LightAccountFactory(entryPoint);
-        account = factory.createAccount(eoaAddress, 1);
+        MultiOwnerLightAccountFactory factory = new MultiOwnerLightAccountFactory(entryPoint);
+        account = factory.createAccountSingle(eoaAddress, 1);
         vm.deal(address(account), 1 << 128);
         lightSwitch = new LightSwitch();
         contractOwner = new Owner();
@@ -84,7 +86,7 @@ contract LightAccountTest is Test {
     }
 
     function testExecuteCannotBeCalledByRandos() public {
-        vm.expectRevert(abi.encodeWithSelector(LightAccount.NotAuthorized.selector, (address(this))));
+        vm.expectRevert(abi.encodeWithSelector(MultiOwnerLightAccount.NotAuthorized.selector, (address(this))));
         account.execute(address(lightSwitch), 0, abi.encodeCall(LightSwitch.turnOn, ()));
     }
 
@@ -112,7 +114,7 @@ contract LightAccountTest is Test {
         dest[1] = address(lightSwitch);
         bytes[] memory func = new bytes[](1);
         func[0] = abi.encodeCall(LightSwitch.turnOn, ());
-        vm.expectRevert(LightAccount.ArrayLengthMismatch.selector);
+        vm.expectRevert(MultiOwnerLightAccount.ArrayLengthMismatch.selector);
         account.executeBatch(dest, func);
     }
 
@@ -138,21 +140,21 @@ contract LightAccountTest is Test {
         value[1] = uint256(1 ether);
         bytes[] memory func = new bytes[](1);
         func[0] = abi.encodeCall(LightSwitch.turnOn, ());
-        vm.expectRevert(LightAccount.ArrayLengthMismatch.selector);
+        vm.expectRevert(MultiOwnerLightAccount.ArrayLengthMismatch.selector);
         account.executeBatch(dest, value, func);
     }
 
     function testInitialize() public {
-        LightAccountFactory factory = new LightAccountFactory(entryPoint);
+        MultiOwnerLightAccountFactory factory = new MultiOwnerLightAccountFactory(entryPoint);
         vm.expectEmit(true, false, false, false);
         emit Initialized(0);
-        account = factory.createAccount(eoaAddress, 1);
+        account = factory.createAccountSingle(eoaAddress, 1);
     }
 
     function testCannotInitializeWithZeroOwner() public {
-        LightAccountFactory factory = new LightAccountFactory(entryPoint);
-        vm.expectRevert(abi.encodeWithSelector(LightAccount.InvalidOwner.selector, (address(0))));
-        account = factory.createAccount(address(0), 1);
+        MultiOwnerLightAccountFactory factory = new MultiOwnerLightAccountFactory(entryPoint);
+        vm.expectRevert(MultiOwnerLightAccountFactory.InvalidOwners.selector);
+        account = factory.createAccountSingle(address(0), 1);
     }
 
     function testAddDeposit() public {
@@ -171,52 +173,91 @@ contract LightAccountTest is Test {
 
     function testWithdrawDepositToCannotBeCalledByRandos() public {
         account.addDeposit{value: 10}();
-        vm.expectRevert(abi.encodeWithSelector(LightAccount.NotAuthorized.selector, (address(this))));
+        vm.expectRevert(abi.encodeWithSelector(MultiOwnerLightAccount.NotAuthorized.selector, (address(this))));
         account.withdrawDepositTo(BENEFICIARY, 5);
     }
 
-    function testOwnerCanTransferOwnership() public {
-        address newOwner = address(0x100);
+    function testOwnerCanUpdateOwners() public {
+        address[] memory ownersToAdd = new address[](1);
+        ownersToAdd[0] = address(0x100);
+        address[] memory ownersToRemove = new address[](1);
+        ownersToRemove[0] = eoaAddress;
         vm.prank(eoaAddress);
+
         vm.expectEmit(true, true, false, false);
-        emit OwnershipTransferred(eoaAddress, newOwner);
-        account.transferOwnership(newOwner);
-        assertEq(account.owner(), newOwner);
+        emit OwnersUpdated(ownersToAdd, ownersToRemove);
+        account.updateOwners(ownersToAdd, ownersToRemove);
+        assertEq(account.owners(), ownersToAdd);
     }
 
-    function testEntryPointCanTransferOwnership() public {
-        address newOwner = address(0x100);
-        PackedUserOperation memory op =
-            _getSignedOp(address(account), abi.encodeCall(LightAccount.transferOwnership, (newOwner)), EOA_PRIVATE_KEY);
+    function testEntryPointCanUpdateOwners() public {
+        address[] memory ownersToAdd = new address[](1);
+        ownersToAdd[0] = address(0x100);
+        address[] memory ownersToRemove = new address[](1);
+        ownersToRemove[0] = eoaAddress;
+        PackedUserOperation memory op = _getSignedOp(
+            address(account),
+            abi.encodeCall(MultiOwnerLightAccount.updateOwners, (ownersToAdd, ownersToRemove)),
+            EOA_PRIVATE_KEY
+        );
         PackedUserOperation[] memory ops = new PackedUserOperation[](1);
         ops[0] = op;
         vm.expectEmit(true, true, false, false);
-        emit OwnershipTransferred(eoaAddress, newOwner);
+        emit OwnersUpdated(ownersToAdd, ownersToRemove);
         entryPoint.handleOps(ops, BENEFICIARY);
-        assertEq(account.owner(), newOwner);
+        assertEq(account.owners(), ownersToAdd);
     }
 
-    function testRandosCannotTransferOwnership() public {
-        vm.expectRevert(abi.encodeWithSelector(LightAccount.NotAuthorized.selector, (address(this))));
-        account.transferOwnership(address(0x100));
+    function testRandosCannotUpdateOwners() public {
+        address[] memory ownersToAdd = new address[](1);
+        ownersToAdd[0] = address(0x100);
+        vm.expectRevert(abi.encodeWithSelector(MultiOwnerLightAccount.NotAuthorized.selector, (address(this))));
+        account.updateOwners(ownersToAdd, new address[](0));
     }
 
-    function testCannotTransferOwnershipToCurrentOwner() public {
+    function testCannotAddExistingOwner() public {
+        address[] memory ownersToAdd = new address[](1);
+        ownersToAdd[0] = address(eoaAddress);
         vm.prank(eoaAddress);
-        vm.expectRevert(abi.encodeWithSelector(LightAccount.InvalidOwner.selector, (eoaAddress)));
-        account.transferOwnership(eoaAddress);
+        vm.expectRevert(abi.encodeWithSelector(MultiOwnerLightAccount.InvalidOwner.selector, (eoaAddress)));
+        account.updateOwners(ownersToAdd, new address[](0));
     }
 
-    function testCannotTransferOwnershipToZero() public {
+    function testCannotAddZeroAddressAsOwner() public {
+        address[] memory ownersToAdd = new address[](1);
+        ownersToAdd[0] = address(0);
         vm.prank(eoaAddress);
-        vm.expectRevert(abi.encodeWithSelector(LightAccount.InvalidOwner.selector, (address(0))));
-        account.transferOwnership(address(0));
+        vm.expectRevert(abi.encodeWithSelector(MultiOwnerLightAccount.InvalidOwner.selector, (address(0))));
+        account.updateOwners(ownersToAdd, new address[](0));
     }
 
-    function testCannotTransferOwnershipToLightContractItself() public {
+    function testCannotRemoveAllOwners() public {
+        address[] memory ownersToRemove = new address[](1);
+        ownersToRemove[0] = address(eoaAddress);
         vm.prank(eoaAddress);
-        vm.expectRevert(abi.encodeWithSelector(LightAccount.InvalidOwner.selector, (address(account))));
-        account.transferOwnership(address(account));
+        vm.expectRevert(MultiOwnerLightAccount.EmptyOwnersNotAllowed.selector);
+        account.updateOwners(new address[](0), ownersToRemove);
+    }
+
+    function testCannotAddLightContractItselfAsOwner() public {
+        address[] memory ownersToAdd = new address[](1);
+        ownersToAdd[0] = address(account);
+        vm.prank(eoaAddress);
+        vm.expectRevert(abi.encodeWithSelector(MultiOwnerLightAccount.InvalidOwner.selector, (address(account))));
+        account.updateOwners(ownersToAdd, new address[](0));
+    }
+
+    function testAddAndRemoveSameOwner() public {
+        address[] memory ownersToAdd = new address[](1);
+        ownersToAdd[0] = eoaAddress;
+        address[] memory ownersToRemove = new address[](1);
+        ownersToRemove[0] = eoaAddress;
+        vm.prank(eoaAddress);
+        account.updateOwners(ownersToAdd, ownersToRemove);
+
+        address[] memory owners = account.owners();
+        assertEq(owners.length, 1);
+        assertEq(owners[0], eoaAddress);
     }
 
     function testEntryPointGetter() public {
@@ -258,7 +299,7 @@ contract LightAccountTest is Test {
         // Try to upgrade to a normal SimpleAccount with a different entry point.
         IEntryPoint newEntryPoint = IEntryPoint(address(0x2000));
         SimpleAccount newImplementation = new SimpleAccount(newEntryPoint);
-        vm.expectRevert(abi.encodeWithSelector(LightAccount.NotAuthorized.selector, (address(this))));
+        vm.expectRevert(abi.encodeWithSelector(MultiOwnerLightAccount.NotAuthorized.selector, (address(this))));
         account.upgradeToAndCall(address(newImplementation), abi.encodeCall(SimpleAccount.initialize, (address(this))));
     }
 
@@ -268,13 +309,14 @@ contract LightAccountTest is Test {
         assertEq(storageStart, 0);
 
         // Instead, storage at the chosen locations.
-        bytes32 accountSlot =
-            keccak256(abi.encode(uint256(keccak256("light_account_v1.storage")) - 1)) & ~bytes32(uint256(0xff));
-        address owner = abi.decode(abi.encode(vm.load(address(account), accountSlot)), (address));
+        bytes32 accountSlot = keccak256(abi.encode(uint256(keccak256("multi_owner_light_account_v1.storage")) - 1))
+            & ~bytes32(uint256(0xff));
+        address owner = address(bytes20(vm.load(address(account), keccak256(abi.encode(SENTINEL_VALUE, accountSlot)))));
         assertEq(owner, eoaAddress);
 
-        bytes32 initializableSlot =
-            keccak256(abi.encode(uint256(keccak256("light_account_v1.initializable")) - 1)) & ~bytes32(uint256(0xff));
+        bytes32 initializableSlot = keccak256(
+            abi.encode(uint256(keccak256("multi_owner_light_account_v1.initializable")) - 1)
+        ) & ~bytes32(uint256(0xff));
         uint8 initialized = abi.decode(abi.encode(vm.load(address(account), initializableSlot)), (uint8));
         assertEq(initialized, 1);
     }
@@ -283,17 +325,21 @@ contract LightAccountTest is Test {
         assertEq(
             keccak256(
                 abi.encodePacked(
-                    type(LightAccountFactory).creationCode,
+                    type(MultiOwnerLightAccountFactory).creationCode,
                     bytes32(uint256(uint160(0x0000000071727De22E5E9d8BAf0edAc6f37da032)))
                 )
             ),
-            0x3bc154d32c096215e957ca99af52e83275464261e8cbe90d8da1df052c89947a
+            0x13b72a4d0723d9429d9c149d74e8355c44fc38752d581d4f27c99f4cf749e62c
         );
     }
 
     function _useContractOwner() internal {
         vm.prank(eoaAddress);
-        account.transferOwnership(address(contractOwner));
+        address[] memory ownersToAdd = new address[](1);
+        ownersToAdd[0] = address(contractOwner);
+        address[] memory ownersToRemove = new address[](1);
+        ownersToRemove[0] = eoaAddress;
+        account.updateOwners(ownersToAdd, ownersToRemove);
     }
 
     function _getUnsignedOp(address target, bytes memory innerCallData)
@@ -309,7 +355,7 @@ contract LightAccountTest is Test {
             sender: address(account),
             nonce: 0,
             initCode: "",
-            callData: abi.encodeCall(LightAccount.execute, (target, 0, innerCallData)),
+            callData: abi.encodeCall(MultiOwnerLightAccount.execute, (target, 0, innerCallData)),
             accountGasLimits: bytes32(uint256(verificationGasLimit) << 128 | callGasLimit),
             preVerificationGas: 1 << 24,
             gasFees: bytes32(uint256(maxPriorityFeePerGas) << 128 | maxFeePerGas),
@@ -331,6 +377,16 @@ contract LightAccountTest is Test {
     function _sign(uint256 privateKey, bytes32 digest) internal pure returns (bytes memory) {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
         return abi.encodePacked(r, s, v);
+    }
+
+    function _getStorage(bytes32 position)
+        internal
+        pure
+        returns (MultiOwnerLightAccount.LightAccountStorage storage storageStruct)
+    {
+        assembly {
+            storageStruct.slot := position
+        }
     }
 }
 

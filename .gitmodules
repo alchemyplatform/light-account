@@ -10,3 +10,7 @@
 	path = lib/account-abstraction
 	url = https://github.com/eth-infinitism/account-abstraction
 	branch = releases/v0.7
+[submodule "lib/modular-account"]
+	path = lib/modular-account
+	url = https://github.com/alchemyplatform/modular-account
+	branch = v1.0.x
