@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.23;
 
-import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import {BaseAccount} from "account-abstraction/core/BaseAccount.sol";
 import {SIG_VALIDATION_FAILED} from "account-abstraction/core/Helpers.sol";
 import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
@@ -9,8 +8,9 @@ import {PackedUserOperation} from "account-abstraction/interfaces/PackedUserOper
 import {TokenCallbackHandler} from "account-abstraction/samples/callback/TokenCallbackHandler.sol";
 
 import {UUPSUpgradeable} from "../../ext/solady/UUPSUpgradeable.sol";
+import {ERC1271} from "./ERC1271.sol";
 
-abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, IERC1271 {
+abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, ERC1271 {
     bytes4 internal constant _1271_MAGIC_VALUE = bytes4(keccak256("isValidSignature(bytes32,bytes)")); // 0x1626ba7e
     IEntryPoint internal immutable _ENTRY_POINT;
 
@@ -91,10 +91,6 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     function getDeposit() public view returns (uint256) {
         return entryPoint().balanceOf(address(this));
     }
-
-    /// @inheritdoc IERC1271
-    /// @dev Must override to support ERC-1271 signature validation.
-    function isValidSignature(bytes32 hash, bytes memory signature) public view virtual override returns (bytes4);
 
     /// @dev Must override to allow calls to protected functions.
     function _isFromOwner() internal view virtual returns (bool);
