@@ -95,13 +95,6 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     /// @dev Must override to support ERC-1271 signature validation.
     function isValidSignature(bytes32 hash, bytes memory signature) public view virtual override returns (bytes4);
 
-    /// @dev Must override to support user op validation.
-    function _validateSignature(PackedUserOperation calldata userOp, bytes32 userOpHash)
-        internal
-        virtual
-        override
-        returns (uint256);
-
     /// @dev Must override to allow calls to protected functions.
     function _isFromOwner() internal view virtual returns (bool);
 
