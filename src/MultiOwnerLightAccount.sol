@@ -75,7 +75,11 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
     /// array cannot have 0 or duplicate addresses.
     /// @param ownersToAdd The address array of owners to be added.
     /// @param ownersToRemove The address array of owners to be removed.
-    function updateOwners(address[] memory ownersToAdd, address[] memory ownersToRemove) external virtual onlyOwner {
+    function updateOwners(address[] memory ownersToAdd, address[] memory ownersToRemove)
+        external
+        virtual
+        onlyAuthorized
+    {
         _updateOwners(ownersToAdd, ownersToRemove);
     }
 

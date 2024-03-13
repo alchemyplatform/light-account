@@ -20,8 +20,8 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     /// @dev The caller is not authorized.
     error NotAuthorized(address caller);
 
-    modifier onlyOwner() {
-        _onlyOwner();
+    modifier onlyAuthorized() {
+        _onlyAuthorized();
         _;
     }
 
@@ -33,8 +33,7 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     /// @param dest The target of the transaction.
     /// @param value The amount of wei sent in the transaction.
     /// @param func The transaction's calldata.
-    function execute(address dest, uint256 value, bytes calldata func) external virtual {
-        _onlyOwnerOrEntryPoint();
+    function execute(address dest, uint256 value, bytes calldata func) external virtual onlyAuthorized {
         _call(dest, value, func);
     }
 
@@ -42,8 +41,7 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     /// @param dest An array of the targets for each transaction in the sequence.
     /// @param func An array of calldata for each transaction in the sequence. Must be the same length as `dest`, with
     /// corresponding elements representing the parameters for each transaction.
-    function executeBatch(address[] calldata dest, bytes[] calldata func) external virtual {
-        _onlyOwnerOrEntryPoint();
+    function executeBatch(address[] calldata dest, bytes[] calldata func) external virtual onlyAuthorized {
         if (dest.length != func.length) {
             revert ArrayLengthMismatch();
         }
@@ -58,8 +56,11 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     /// @param value An array of value for each transaction in the sequence.
     /// @param func An array of calldata for each transaction in the sequence. Must be the same length as `dest`, with
     /// corresponding elements representing the parameters for each transaction.
-    function executeBatch(address[] calldata dest, uint256[] calldata value, bytes[] calldata func) external virtual {
-        _onlyOwnerOrEntryPoint();
+    function executeBatch(address[] calldata dest, uint256[] calldata value, bytes[] calldata func)
+        external
+        virtual
+        onlyAuthorized
+    {
         if (dest.length != func.length || dest.length != value.length) {
             revert ArrayLengthMismatch();
         }
@@ -77,7 +78,7 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     /// @notice Withdraw value from the account's deposit.
     /// @param withdrawAddress Target to send to.
     /// @param amount Amount to withdraw.
-    function withdrawDepositTo(address payable withdrawAddress, uint256 amount) public onlyOwner {
+    function withdrawDepositTo(address payable withdrawAddress, uint256 amount) public onlyAuthorized {
         entryPoint().withdrawTo(withdrawAddress, amount);
     }
 
@@ -95,20 +96,12 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     /// @dev Must override to allow calls to protected functions.
     function _isFromOwner() internal view virtual returns (bool);
 
-    function _isFromEntryPoint() internal view returns (bool) {
-        return msg.sender == address(entryPoint());
-    }
-
-    /// @dev Revert if the caller is not an owner or the account itself (when redirected through `execute`).
-    function _onlyOwner() internal view {
-        if (msg.sender != address(this) && !_isFromOwner()) {
-            revert NotAuthorized(msg.sender);
-        }
-    }
-
-    /// @dev Require that the call is from the entry point or an owner.
-    function _onlyOwnerOrEntryPoint() internal view {
-        if (!_isFromEntryPoint() && !_isFromOwner()) {
+    /// @dev Revert if the caller is not any of:
+    /// 1. The entry point
+    /// 2. The account itself (when redirected through `execute`, etc.)
+    /// 3. An owner
+    function _onlyAuthorized() internal view {
+        if (msg.sender != address(entryPoint()) && msg.sender != address(this) && !_isFromOwner()) {
             revert NotAuthorized(msg.sender);
         }
     }
@@ -122,8 +115,7 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
         }
     }
 
-    function _authorizeUpgrade(address newImplementation) internal view override {
+    function _authorizeUpgrade(address newImplementation) internal view override onlyAuthorized {
         (newImplementation);
-        _onlyOwner();
     }
 }
