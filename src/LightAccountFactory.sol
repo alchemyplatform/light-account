@@ -45,7 +45,11 @@ contract LightAccountFactory {
         );
     }
 
-    function _getCombinedSalt(address owner, uint256 salt) internal pure returns (bytes32) {
-        return keccak256(abi.encode(owner, salt));
+    function _getCombinedSalt(address owner, uint256 salt) internal pure returns (bytes32 combinedSalt) {
+        assembly ("memory-safe") {
+            mstore(0x00, owner)
+            mstore(0x20, salt)
+            combinedSalt := keccak256(0x00, 0x40)
+        }
     }
 }
