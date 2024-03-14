@@ -288,7 +288,7 @@ contract LightAccountTest is Test {
                     bytes32(uint256(uint160(0x0000000071727De22E5E9d8BAf0edAc6f37da032)))
                 )
             ),
-            0x8b2f633eba37bf3a83c6f8e7a66b5816e425717597e3a687777e977ddbc589c0
+            0xa677af8a16ab66d988856a88ea647c45da368a588b036126ce3e21645f7891ca
         );
     }
 
