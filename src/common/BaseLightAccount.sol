@@ -11,7 +11,6 @@ import {UUPSUpgradeable} from "../../ext/solady/UUPSUpgradeable.sol";
 import {ERC1271} from "./ERC1271.sol";
 
 abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, ERC1271 {
-    bytes4 internal constant _1271_MAGIC_VALUE = bytes4(keccak256("isValidSignature(bytes32,bytes)")); // 0x1626ba7e
     IEntryPoint internal immutable _ENTRY_POINT;
 
     /// @dev The length of the array does not match the expected length.
@@ -109,7 +108,7 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     function _call(address target, uint256 value, bytes memory data) internal {
         (bool success, bytes memory result) = target.call{value: value}(data);
         if (!success) {
-            assembly {
+            assembly ("memory-safe") {
                 revert(add(result, 32), mload(result))
             }
         }

@@ -172,7 +172,7 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
         returns (bool)
     {
         (address recovered, ECDSA.RecoverError error,) = derivedHash.tryRecover(trimmedSignature);
-        return (error == ECDSA.RecoverError.NoError && _getStorage().owners.contains(CastLib.toSetValue(recovered)))
+        return (error == ECDSA.RecoverError.NoError && _getStorage().owners.contains(recovered.toSetValue()))
             || _isValidERC1271SignatureNow(derivedHash, trimmedSignature);
     }
 
@@ -193,7 +193,7 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
 
     function _getStorage() internal pure returns (LightAccountStorage storage storageStruct) {
         bytes32 position = _STORAGE_POSITION;
-        assembly {
+        assembly ("memory-safe") {
             storageStruct.slot := position
         }
     }
