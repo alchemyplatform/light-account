@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.23;
 
-import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
@@ -30,11 +29,6 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
     // keccak256(abi.encode(uint256(keccak256("multi_owner_light_account_v1.initializable")) - 1)) & ~bytes32(uint256(0xff));
     bytes32 internal constant _INITIALIZABLE_STORAGE_POSITION =
         0xaa296a366a62f6551d3ddfceae892d1791068a359a0d3461aab99dfc6c5fd700;
-    bytes32 internal constant _DOMAIN_SEPARATOR_TYPEHASH =
-        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
-    bytes32 internal constant _LA_MSG_TYPEHASH = keccak256("MultiOwnerLightAccountMessage(bytes message)");
-    bytes32 internal constant _NAME_HASH = keccak256("MultiOwnerLightAccount");
-    bytes32 internal constant _VERSION_HASH = keccak256("1");
 
     struct LightAccountStorage {
         LinkedListSet owners;
@@ -89,52 +83,6 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
     ///@return The array of owner addresses.
     function owners() public view returns (address[] memory) {
         return _getStorage().owners.getAll().toAddressArray();
-    }
-
-    /// @notice Returns the domain separator for this contract, as defined in the EIP-712 standard.
-    /// @return bytes32 The domain separator hash.
-    function domainSeparator() public view returns (bytes32) {
-        return keccak256(
-            abi.encode(
-                _DOMAIN_SEPARATOR_TYPEHASH,
-                _NAME_HASH, // name
-                _VERSION_HASH, // version
-                block.chainid, // chainId
-                address(this) // verifying contract
-            )
-        );
-    }
-
-    /// @notice Returns the pre-image of the message hash.
-    /// @param message Message that should be encoded.
-    /// @return Encoded message.
-    function encodeMessageData(bytes memory message) public view returns (bytes memory) {
-        bytes32 messageHash = keccak256(abi.encode(_LA_MSG_TYPEHASH, keccak256(message)));
-        return abi.encodePacked("\x19\x01", domainSeparator(), messageHash);
-    }
-
-    /// @notice Returns hash of a message that can be signed by owners.
-    /// @param message Message that should be hashed.
-    /// @return Message hash.
-    function getMessageHash(bytes memory message) public view returns (bytes32) {
-        return keccak256(encodeMessageData(message));
-    }
-
-    /// @inheritdoc IERC1271
-    /// @dev The signature is valid if it is signed by the owner's private key (if the owner is an EOA) or if it is a
-    /// valid ERC-1271 signature from the owner (if the owner is a contract). Note that unlike the signature validation
-    /// used in `validateUserOp`, this does **not** wrap the digest in an "Ethereum Signed Message" envelope before
-    /// checking the signature in the EOA-owner case.
-    function isValidSignature(bytes32 hash, bytes memory signature) public view override returns (bytes4) {
-        bytes32 messageHash = getMessageHash(abi.encode(hash));
-        (address recovered, ECDSA.RecoverError error,) = messageHash.tryRecover(signature);
-        if (error == ECDSA.RecoverError.NoError && _getStorage().owners.contains(CastLib.toSetValue(recovered))) {
-            return _1271_MAGIC_VALUE;
-        }
-        if (_isValidERC1271SignatureNow(messageHash, signature)) {
-            return _1271_MAGIC_VALUE;
-        }
-        return 0xffffffff;
     }
 
     function _initialize(address[] calldata owners_) internal virtual {
@@ -208,6 +156,31 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
             }
         }
         return false;
+    }
+
+    /// @dev The signature is valid if it is signed by the owner's private key (if the owner is an EOA) or if it is a
+    /// valid ERC-1271 signature from the owner (if the owner is a contract).
+    function _isValidSignature(bytes32 derivedHash, bytes calldata trimmedSignature)
+        internal
+        view
+        virtual
+        override
+        returns (bool)
+    {
+        (address recovered, ECDSA.RecoverError error,) = derivedHash.tryRecover(trimmedSignature);
+        return (error == ECDSA.RecoverError.NoError && _getStorage().owners.contains(CastLib.toSetValue(recovered)))
+            || _isValidERC1271SignatureNow(derivedHash, trimmedSignature);
+    }
+
+    function _domainNameAndVersion()
+        internal
+        view
+        virtual
+        override
+        returns (string memory name, string memory version)
+    {
+        name = "MultiOwnerLightAccount";
+        version = "1";
     }
 
     function _isFromOwner() internal view virtual override returns (bool) {
