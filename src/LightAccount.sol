@@ -83,7 +83,7 @@ contract LightAccount is BaseLightAccount, CustomSlotInitializable {
     /// @notice Transfers ownership of the contract to a new account (`newOwner`). Can only be called by the current
     /// owner or from the entry point via a user operation signed by the current owner.
     /// @param newOwner The new owner.
-    function transferOwnership(address newOwner) external virtual onlyOwner {
+    function transferOwnership(address newOwner) external virtual onlyAuthorized {
         if (newOwner == address(0) || newOwner == address(this)) {
             revert InvalidOwner(newOwner);
         }

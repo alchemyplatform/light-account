@@ -59,8 +59,10 @@ contract LightAccountTest is Test {
     }
 
     function testExecuteCanBeCalledByEntryPointWithExternalOwner() public {
-        PackedUserOperation memory op =
-            _getSignedOp(address(lightSwitch), abi.encodeCall(LightSwitch.turnOn, ()), EOA_PRIVATE_KEY);
+        PackedUserOperation memory op = _getSignedOp(
+            abi.encodeCall(BaseLightAccount.execute, (address(lightSwitch), 0, abi.encodeCall(LightSwitch.turnOn, ()))),
+            EOA_PRIVATE_KEY
+        );
         PackedUserOperation[] memory ops = new PackedUserOperation[](1);
         ops[0] = op;
         entryPoint.handleOps(ops, BENEFICIARY);
@@ -69,7 +71,9 @@ contract LightAccountTest is Test {
 
     function testExecutedCanBeCalledByEntryPointWithContractOwner() public {
         _useContractOwner();
-        PackedUserOperation memory op = _getUnsignedOp(address(lightSwitch), abi.encodeCall(LightSwitch.turnOn, ()));
+        PackedUserOperation memory op = _getUnsignedOp(
+            abi.encodeCall(BaseLightAccount.execute, (address(lightSwitch), 0, abi.encodeCall(LightSwitch.turnOn, ())))
+        );
         op.signature = contractOwner.sign(entryPoint.getUserOpHash(op));
         PackedUserOperation[] memory ops = new PackedUserOperation[](1);
         ops[0] = op;
@@ -78,7 +82,10 @@ contract LightAccountTest is Test {
     }
 
     function testRejectsUserOpsWithInvalidSignature() public {
-        PackedUserOperation memory op = _getSignedOp(address(lightSwitch), abi.encodeCall(LightSwitch.turnOn, ()), 1234);
+        PackedUserOperation memory op = _getSignedOp(
+            abi.encodeCall(BaseLightAccount.execute, (address(lightSwitch), 0, abi.encodeCall(LightSwitch.turnOn, ()))),
+            1234
+        );
         PackedUserOperation[] memory ops = new PackedUserOperation[](1);
         ops[0] = op;
         vm.expectRevert(abi.encodeWithSelector(IEntryPoint.FailedOp.selector, 0, "AA24 signature error"));
@@ -171,6 +178,37 @@ contract LightAccountTest is Test {
         assertEq(entryPoint.balanceOf(address(account)), 5);
     }
 
+    function testWithdrawDepositCanBeCalledByEntryPointWithExternalOwner() public {
+        account.addDeposit{value: 1 ether}();
+        address payable withdrawalAddress = payable(address(1));
+
+        PackedUserOperation memory op =
+            _getSignedOp(abi.encodeCall(BaseLightAccount.withdrawDepositTo, (withdrawalAddress, 5)), EOA_PRIVATE_KEY);
+        PackedUserOperation[] memory ops = new PackedUserOperation[](1);
+        ops[0] = op;
+        entryPoint.handleOps(ops, BENEFICIARY);
+
+        assertEq(withdrawalAddress.balance, 5);
+    }
+
+    function testWithdrawDepositCanBeCalledBySelf() public {
+        account.addDeposit{value: 1 ether}();
+        address payable withdrawalAddress = payable(address(1));
+
+        PackedUserOperation memory op = _getSignedOp(
+            abi.encodeCall(
+                BaseLightAccount.execute,
+                (address(account), 0, abi.encodeCall(BaseLightAccount.withdrawDepositTo, (withdrawalAddress, 5)))
+            ),
+            EOA_PRIVATE_KEY
+        );
+        PackedUserOperation[] memory ops = new PackedUserOperation[](1);
+        ops[0] = op;
+        entryPoint.handleOps(ops, BENEFICIARY);
+
+        assertEq(withdrawalAddress.balance, 5);
+    }
+
     function testWithdrawDepositToCannotBeCalledByRandos() public {
         account.addDeposit{value: 10}();
         vm.expectRevert(abi.encodeWithSelector(BaseLightAccount.NotAuthorized.selector, (address(this))));
@@ -189,7 +227,24 @@ contract LightAccountTest is Test {
     function testEntryPointCanTransferOwnership() public {
         address newOwner = address(0x100);
         PackedUserOperation memory op =
-            _getSignedOp(address(account), abi.encodeCall(LightAccount.transferOwnership, (newOwner)), EOA_PRIVATE_KEY);
+            _getSignedOp(abi.encodeCall(LightAccount.transferOwnership, (newOwner)), EOA_PRIVATE_KEY);
+        PackedUserOperation[] memory ops = new PackedUserOperation[](1);
+        ops[0] = op;
+        vm.expectEmit(true, true, false, false);
+        emit OwnershipTransferred(eoaAddress, newOwner);
+        entryPoint.handleOps(ops, BENEFICIARY);
+        assertEq(account.owner(), newOwner);
+    }
+
+    function testSelfCanTransferOwnership() public {
+        address newOwner = address(0x100);
+        PackedUserOperation memory op = _getSignedOp(
+            abi.encodeCall(
+                BaseLightAccount.execute,
+                (address(account), 0, abi.encodeCall(LightAccount.transferOwnership, (newOwner)))
+            ),
+            EOA_PRIVATE_KEY
+        );
         PackedUserOperation[] memory ops = new PackedUserOperation[](1);
         ops[0] = op;
         vm.expectEmit(true, true, false, false);
@@ -302,10 +357,63 @@ contract LightAccountTest is Test {
         // Upgrade to a normal SimpleAccount with a different entry point.
         IEntryPoint newEntryPoint = IEntryPoint(address(0x2000));
         SimpleAccount newImplementation = new SimpleAccount(newEntryPoint);
+
+        vm.prank(eoaAddress);
         vm.expectEmit(true, true, false, false);
         emit SimpleAccountInitialized(newEntryPoint, address(this));
-        vm.prank(eoaAddress);
         account.upgradeToAndCall(address(newImplementation), abi.encodeCall(SimpleAccount.initialize, (address(this))));
+
+        SimpleAccount upgradedAccount = SimpleAccount(payable(account));
+        assertEq(address(upgradedAccount.entryPoint()), address(newEntryPoint));
+    }
+
+    function testEntryPointCanUpgrade() public {
+        // Upgrade to a normal SimpleAccount with a different entry point.
+        IEntryPoint newEntryPoint = IEntryPoint(address(0x2000));
+        SimpleAccount newImplementation = new SimpleAccount(newEntryPoint);
+        PackedUserOperation memory op = _getSignedOp(
+            abi.encodeCall(
+                account.upgradeToAndCall,
+                (address(newImplementation), abi.encodeCall(SimpleAccount.initialize, (address(this))))
+            ),
+            EOA_PRIVATE_KEY
+        );
+        PackedUserOperation[] memory ops = new PackedUserOperation[](1);
+        ops[0] = op;
+
+        vm.expectEmit(true, true, false, false);
+        emit SimpleAccountInitialized(newEntryPoint, address(this));
+        entryPoint.handleOps(ops, BENEFICIARY);
+
+        SimpleAccount upgradedAccount = SimpleAccount(payable(account));
+        assertEq(address(upgradedAccount.entryPoint()), address(newEntryPoint));
+    }
+
+    function testSelfCanUpgrade() public {
+        // Upgrade to a normal SimpleAccount with a different entry point.
+        IEntryPoint newEntryPoint = IEntryPoint(address(0x2000));
+        SimpleAccount newImplementation = new SimpleAccount(newEntryPoint);
+        PackedUserOperation memory op = _getSignedOp(
+            abi.encodeCall(
+                BaseLightAccount.execute,
+                (
+                    address(account),
+                    0,
+                    abi.encodeCall(
+                        account.upgradeToAndCall,
+                        (address(newImplementation), abi.encodeCall(SimpleAccount.initialize, (address(this))))
+                        )
+                )
+            ),
+            EOA_PRIVATE_KEY
+        );
+        PackedUserOperation[] memory ops = new PackedUserOperation[](1);
+        ops[0] = op;
+
+        vm.expectEmit(true, true, false, false);
+        emit SimpleAccountInitialized(newEntryPoint, address(this));
+        entryPoint.handleOps(ops, BENEFICIARY);
+
         SimpleAccount upgradedAccount = SimpleAccount(payable(account));
         assertEq(address(upgradedAccount.entryPoint()), address(newEntryPoint));
     }
@@ -343,7 +451,7 @@ contract LightAccountTest is Test {
                     bytes32(uint256(uint160(0x0000000071727De22E5E9d8BAf0edAc6f37da032)))
                 )
             ),
-            0x56aa27383cd945ea0c90683be2dec26099099eb0cb138033e62c3e2e6c613a7c
+            0x7448a966519c6db16b5148dde40a37c19b5fe204acc51ef0cbfe865ea110a15d
         );
     }
 
@@ -352,11 +460,7 @@ contract LightAccountTest is Test {
         account.transferOwnership(address(contractOwner));
     }
 
-    function _getUnsignedOp(address target, bytes memory innerCallData)
-        internal
-        view
-        returns (PackedUserOperation memory)
-    {
+    function _getUnsignedOp(bytes memory callData) internal view returns (PackedUserOperation memory) {
         uint128 verificationGasLimit = 1 << 24;
         uint128 callGasLimit = 1 << 24;
         uint128 maxPriorityFeePerGas = 1 << 8;
@@ -365,7 +469,7 @@ contract LightAccountTest is Test {
             sender: address(account),
             nonce: 0,
             initCode: "",
-            callData: abi.encodeCall(BaseLightAccount.execute, (target, 0, innerCallData)),
+            callData: callData,
             accountGasLimits: bytes32(uint256(verificationGasLimit) << 128 | callGasLimit),
             preVerificationGas: 1 << 24,
             gasFees: bytes32(uint256(maxPriorityFeePerGas) << 128 | maxFeePerGas),
@@ -374,12 +478,12 @@ contract LightAccountTest is Test {
         });
     }
 
-    function _getSignedOp(address target, bytes memory innerCallData, uint256 privateKey)
+    function _getSignedOp(bytes memory callData, uint256 privateKey)
         internal
         view
         returns (PackedUserOperation memory)
     {
-        PackedUserOperation memory op = _getUnsignedOp(target, innerCallData);
+        PackedUserOperation memory op = _getUnsignedOp(callData);
         op.signature = _sign(privateKey, entryPoint.getUserOpHash(op).toEthSignedMessageHash());
         return op;
     }
