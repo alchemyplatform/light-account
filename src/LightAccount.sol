@@ -166,7 +166,7 @@ contract LightAccount is BaseLightAccount, CustomSlotInitializable {
 
     function _getStorage() internal pure returns (LightAccountStorage storage storageStruct) {
         bytes32 position = _STORAGE_POSITION;
-        assembly {
+        assembly ("memory-safe") {
             storageStruct.slot := position
         }
     }

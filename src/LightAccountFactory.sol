@@ -45,7 +45,12 @@ contract LightAccountFactory {
         );
     }
 
+    /// @notice Compute the hash of the owner and salt in scratch space memory.
+    /// @param owner The owner of the account to be created.
+    /// @param salt A salt, which can be changed to create multiple accounts with the same owner.
+    /// @return combinedSalt The hash of the owner and salt.
     function _getCombinedSalt(address owner, uint256 salt) internal pure returns (bytes32 combinedSalt) {
+        // Compute the hash of the owner and salt in scratch space memory.
         assembly ("memory-safe") {
             mstore(0x00, owner)
             mstore(0x20, salt)

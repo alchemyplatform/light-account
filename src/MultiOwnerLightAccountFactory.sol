@@ -75,6 +75,10 @@ contract MultiOwnerLightAccountFactory {
         );
     }
 
+    /// @notice Compute the hash of the owner and salt in scratch space memory.
+    /// @param owners The owners of the account to be created.
+    /// @param salt A salt, which can be changed to create multiple accounts with the same owner.
+    /// @return combinedSalt The hash of the owner and salt.
     function _getCombinedSalt(address[] memory owners, uint256 salt) internal pure returns (bytes32) {
         return keccak256(abi.encode(owners, salt));
     }

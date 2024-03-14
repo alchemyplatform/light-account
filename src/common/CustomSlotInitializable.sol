@@ -182,7 +182,7 @@ abstract contract CustomSlotInitializable {
 
     function _getInitializableStorage() private view returns (CustomSlotInitializableStorage storage _storage) {
         bytes32 position = _storagePosition;
-        assembly {
+        assembly ("memory-safe") {
             _storage.slot := position
         }
     }
