@@ -145,10 +145,7 @@ contract MultiOwnerLightAccountTest is Test {
     }
 
     function testFuzz_rejectsUserOpsWithInvalidSignatureType(uint8 signatureType) public {
-        // Valid values are 0,1,3
-        if (signatureType != 2) {
-            signatureType = uint8(bound(signatureType, 4, type(uint8).max));
-        }
+        signatureType = uint8(bound(signatureType, 3, type(uint8).max));
 
         PackedUserOperation memory op = _getUnsignedOp(
             abi.encodeCall(BaseLightAccount.execute, (address(lightSwitch), 0, abi.encodeCall(LightSwitch.turnOn, ())))
@@ -410,7 +407,11 @@ contract MultiOwnerLightAccountTest is Test {
     function testIsValidSignatureForEoaOwner() public {
         bytes32 child = keccak256(abi.encode(_CHILD_TYPEHASH, "hello world"));
         bytes memory signature = abi.encodePacked(
-            _sign(EOA_PRIVATE_KEY, _toERC1271Hash(child)), _PARENT_TYPEHASH, _domainSeparatorB(), child
+            MultiOwnerLightAccount.SignatureTypes.EOA,
+            _sign(EOA_PRIVATE_KEY, _toERC1271Hash(child)),
+            _PARENT_TYPEHASH,
+            _domainSeparatorB(),
+            child
         );
         assertEq(
             account.isValidSignature(_toChildHash(child), signature),
@@ -418,47 +419,124 @@ contract MultiOwnerLightAccountTest is Test {
         );
     }
 
-    function testIsValidSignatureForContractOwner() public {
+    function testIsValidSignatureForContractOwnerUnspecified() public {
         _useContractOwner();
         bytes32 child = keccak256(abi.encode(_CHILD_TYPEHASH, "hello world"));
-        bytes memory signature =
-            abi.encodePacked(contractOwner.sign(_toERC1271Hash(child)), _PARENT_TYPEHASH, _domainSeparatorB(), child);
+        bytes memory signature = abi.encodePacked(
+            MultiOwnerLightAccount.SignatureTypes.CONTRACT,
+            contractOwner.sign(_toERC1271Hash(child)),
+            _PARENT_TYPEHASH,
+            _domainSeparatorB(),
+            child
+        );
         assertEq(
             account.isValidSignature(_toChildHash(child), signature),
             bytes4(keccak256("isValidSignature(bytes32,bytes)"))
         );
     }
 
-    function testIsValidSignatureRejectsInvalid() public {
+    function testIsValidSignatureForContractOwnerSpecified() public {
+        _useContractOwner();
         bytes32 child = keccak256(abi.encode(_CHILD_TYPEHASH, "hello world"));
-        bytes memory signature =
-            abi.encodePacked(_sign(123, _toERC1271Hash(child)), _PARENT_TYPEHASH, _domainSeparatorB(), child);
+        bytes memory signature = abi.encodePacked(
+            MultiOwnerLightAccount.SignatureTypes.CONTRACT_WITH_ADDR,
+            contractOwner,
+            contractOwner.sign(_toERC1271Hash(child)),
+            _PARENT_TYPEHASH,
+            _domainSeparatorB(),
+            child
+        );
+        assertEq(
+            account.isValidSignature(_toChildHash(child), signature),
+            bytes4(keccak256("isValidSignature(bytes32,bytes)"))
+        );
+    }
+
+    function testIsValidSignatureRejectsInvalidEOA() public {
+        bytes32 child = keccak256(abi.encode(_CHILD_TYPEHASH, "hello world"));
+        bytes memory signature = abi.encodePacked(
+            MultiOwnerLightAccount.SignatureTypes.EOA,
+            _sign(123, _toERC1271Hash(child)),
+            _PARENT_TYPEHASH,
+            _domainSeparatorB(),
+            child
+        );
         assertEq(account.isValidSignature(_toChildHash(child), signature), bytes4(0xffffffff));
 
         signature = abi.encodePacked(
-            _sign(EOA_PRIVATE_KEY, _toERC1271Hash(child)), _PARENT_TYPEHASH, _domainSeparatorA(), child
+            MultiOwnerLightAccount.SignatureTypes.EOA,
+            _sign(EOA_PRIVATE_KEY, _toERC1271Hash(child)),
+            _PARENT_TYPEHASH,
+            _domainSeparatorA(),
+            child
         );
         assertEq(account.isValidSignature(_toChildHash(child), signature), bytes4(0xffffffff));
 
-        assertEq(account.isValidSignature(_toChildHash(child), ""), bytes4(0xffffffff));
+        assertEq(
+            account.isValidSignature(_toChildHash(child), abi.encodePacked(MultiOwnerLightAccount.SignatureTypes.EOA)),
+            bytes4(0xffffffff)
+        );
+    }
+
+    function testIsValidSignatureRejectsInvalidContractOwner() public {
+        // Signature should fail, because the contract owner is not an owner
+        bytes32 child = keccak256(abi.encode(_CHILD_TYPEHASH, "hello world"));
+        bytes memory signature = abi.encodePacked(
+            MultiOwnerLightAccount.SignatureTypes.CONTRACT,
+            contractOwner.sign(_toERC1271Hash(child)),
+            _PARENT_TYPEHASH,
+            _domainSeparatorB(),
+            child
+        );
+        assertEq(account.isValidSignature(_toChildHash(child), signature), bytes4(0xffffffff));
+    }
+
+    function testFuzz_IsValidSignatureRejectsInvalidSignatureType(uint8 signatureType) public {
+        signatureType = uint8(bound(signatureType, 3, type(uint8).max));
+
+        bytes32 child = keccak256(abi.encode(_CHILD_TYPEHASH, "hello world"));
+        bytes memory signature = abi.encodePacked(
+            signatureType, _sign(EOA_PRIVATE_KEY, _toERC1271Hash(child)), _PARENT_TYPEHASH, _domainSeparatorB(), child
+        );
+        assertEq(account.isValidSignature(_toChildHash(child), signature), bytes4(0xffffffff));
     }
 
     function testIsValidSignaturePersonalSign() public {
         string memory message = "hello world";
         bytes32 childHash =
             keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n", bytes(message).length, message));
-        bytes memory signature =
-            abi.encodePacked(_sign(EOA_PRIVATE_KEY, _toERC1271HashPersonalSign(childHash)), _PARENT_TYPEHASH);
+        bytes memory signature = abi.encodePacked(
+            MultiOwnerLightAccount.SignatureTypes.EOA,
+            _sign(EOA_PRIVATE_KEY, _toERC1271HashPersonalSign(childHash)),
+            _PARENT_TYPEHASH
+        );
         assertEq(account.isValidSignature(childHash, signature), bytes4(keccak256("isValidSignature(bytes32,bytes)")));
     }
 
-    function testIsValidSignaturePersonalSignForContractOwner() public {
+    function testIsValidSignaturePersonalSignForContractOwnerUnspecified() public {
         _useContractOwner();
         string memory message = "hello world";
         bytes32 childHash =
             keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n", bytes(message).length, message));
-        bytes memory signature =
-            abi.encodePacked(contractOwner.sign(_toERC1271HashPersonalSign(childHash)), _PARENT_TYPEHASH);
+        bytes memory signature = abi.encodePacked(
+            MultiOwnerLightAccount.SignatureTypes.CONTRACT,
+            contractOwner.sign(_toERC1271HashPersonalSign(childHash)),
+            _PARENT_TYPEHASH
+        );
+        assertEq(account.isValidSignature(childHash, signature), bytes4(keccak256("isValidSignature(bytes32,bytes)")));
+    }
+
+    function testIsValidSignaturePersonalSignForContractOwnerSpecified() public {
+        _useContractOwner();
+        string memory message = "hello world";
+        bytes32 childHash =
+            keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n", bytes(message).length, message));
+        bytes memory signature = abi.encodePacked(
+            MultiOwnerLightAccount.SignatureTypes.CONTRACT_WITH_ADDR,
+            contractOwner,
+            contractOwner.sign(_toERC1271HashPersonalSign(childHash)),
+            _PARENT_TYPEHASH
+        );
         assertEq(account.isValidSignature(childHash, signature), bytes4(keccak256("isValidSignature(bytes32,bytes)")));
     }
 
@@ -466,10 +544,15 @@ contract MultiOwnerLightAccountTest is Test {
         string memory message = "hello world";
         bytes32 childHash =
             keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n", bytes(message).length, message));
-        bytes memory signature = abi.encodePacked(_sign(123, _toERC1271HashPersonalSign(childHash)), _PARENT_TYPEHASH);
+        bytes memory signature = abi.encodePacked(
+            MultiOwnerLightAccount.SignatureTypes.EOA,
+            _sign(123, _toERC1271HashPersonalSign(childHash)),
+            _PARENT_TYPEHASH
+        );
         assertEq(account.isValidSignature(childHash, signature), bytes4(0xffffffff));
 
         signature = abi.encodePacked(
+            MultiOwnerLightAccount.SignatureTypes.EOA,
             _sign(EOA_PRIVATE_KEY, _toERC1271HashPersonalSign(childHash)),
             _PARENT_TYPEHASH,
             _domainSeparatorB(),
@@ -477,7 +560,10 @@ contract MultiOwnerLightAccountTest is Test {
         );
         assertEq(account.isValidSignature(childHash, signature), bytes4(0xffffffff));
 
-        assertEq(account.isValidSignature(childHash, ""), bytes4(0xffffffff));
+        assertEq(
+            account.isValidSignature(childHash, abi.encodePacked(MultiOwnerLightAccount.SignatureTypes.EOA)),
+            bytes4(0xffffffff)
+        );
     }
 
     function testOwnerCanUpgrade() public {
@@ -579,7 +665,7 @@ contract MultiOwnerLightAccountTest is Test {
                     bytes32(uint256(uint160(0x0000000071727De22E5E9d8BAf0edAc6f37da032)))
                 )
             ),
-            0x0a14a7d2e0fb6858a618de8e4a7cf52bd1cb8dad3f4adbf243078a4db5f13c92
+            0xead9408e740524880066371b7b1590829216c843719ab5a102236d1bb9d80ea1
         );
     }
 

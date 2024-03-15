@@ -31,21 +31,10 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
         0xaa296a366a62f6551d3ddfceae892d1791068a359a0d3461aab99dfc6c5fd700;
 
     // Signature types used for user operation validation and ERC-1271 signature validation.
-    // The enum value encodes the following bit layout:
-    // | is contract signature?  | 0b_______1
-    // | has address provided?   | 0b______1_
-    // | is transparent EIP-712? | 0b_____1__
-    // | empty                   | 0b00000___
     enum SignatureTypes {
-        EOA, // 0
-        CONTRACT, // 1
-        empty_1, // skip 2 to align bitmap
-        CONTRACT_WITH_ADDR, // 3
-        TRANSPARENT_EOA, // 4
-        TRANSPARENT_CONTRACT, // 5
-        empty_2, // skip 6 to align bitmap
-        TRANSPARENT_CONTRACT_WITH_ADDR // 7
-
+        EOA,
+        CONTRACT,
+        CONTRACT_WITH_ADDR
     }
 
     struct LightAccountStorage {
@@ -245,9 +234,25 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
         override
         returns (bool)
     {
-        (address recovered, ECDSA.RecoverError error,) = derivedHash.tryRecover(trimmedSignature);
-        return (error == ECDSA.RecoverError.NoError && _getStorage().owners.contains(recovered.toSetValue()))
-            || _isValidContractOwnerSignatureNowLoop(derivedHash, trimmedSignature);
+        if (trimmedSignature.length < 1) {
+            return false;
+        }
+        uint8 signatureType = uint8(trimmedSignature[0]);
+        if (signatureType == uint8(SignatureTypes.EOA)) {
+            // EOA signature;
+            bytes memory signature = trimmedSignature[1:];
+            return _isValidEOAOwnerSignature(derivedHash, signature);
+        } else if (signatureType == uint8(SignatureTypes.CONTRACT)) {
+            // Contract signature without address
+            bytes memory signature = trimmedSignature[1:];
+            return _isValidContractOwnerSignatureNowLoop(derivedHash, signature);
+        } else if (signatureType == uint8(SignatureTypes.CONTRACT_WITH_ADDR)) {
+            // Contract signature with address
+            address contractOwner = address(bytes20(trimmedSignature[1:21]));
+            bytes memory signature = trimmedSignature[21:];
+            return _isValidContractOwnerSignatureNowSingle(contractOwner, derivedHash, signature);
+        }
+        return false;
     }
 
     function _domainNameAndVersion()
