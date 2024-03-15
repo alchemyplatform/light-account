@@ -4,7 +4,6 @@ pragma solidity ^0.8.23;
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
-import {SIG_VALIDATION_FAILED} from "account-abstraction/core/Helpers.sol";
 import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
 import {PackedUserOperation} from "account-abstraction/interfaces/PackedUserOperation.sol";
 import {CastLib} from "modular-account/helpers/CastLib.sol";
@@ -30,6 +29,24 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
     bytes32 internal constant _INITIALIZABLE_STORAGE_POSITION =
         0xaa296a366a62f6551d3ddfceae892d1791068a359a0d3461aab99dfc6c5fd700;
 
+    // Signature types used for user operation validation and ERC-1271 signature validation.
+    // The enum value encodes the following bit layout:
+    // | is contract signature?  | 0b_______1
+    // | has address provided?   | 0b______1_
+    // | is transparent EIP-712? | 0b_____1__
+    // | empty                   | 0b00000___
+    enum SignatureTypes {
+        EOA, // 0
+        CONTRACT, // 1
+        CONTRACT_WITH_ADDR, // 2
+        empty_1, // skip 3 to align bitmap
+        TRANSPARENT_EOA, // 4
+        TRANSPARENT_CONTRACT, // 5
+        empty_2, // skip 6 to align bitmap
+        TRANSPARENT_CONTRACT_WITH_ADDR // 7
+
+    }
+
     struct LightAccountStorage {
         LinkedListSet owners;
     }
@@ -53,6 +70,9 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
 
     /// @dev The owner to be removed does not exist.
     error OwnerDoesNotExist(address owner);
+
+    /// @dev The signature type provided is not valid.
+    error InvalidSignatureType();
 
     constructor(IEntryPoint entryPoint_) CustomSlotInitializable(_INITIALIZABLE_STORAGE_POSITION) {
         _ENTRY_POINT = entryPoint_;
@@ -138,19 +158,64 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
         override
         returns (uint256 validationData)
     {
-        bytes32 signedHash = userOpHash.toEthSignedMessageHash();
-        bytes memory signature = userOp.signature;
-        (address recovered, ECDSA.RecoverError error,) = signedHash.tryRecover(signature);
-        if (error == ECDSA.RecoverError.NoError && _getStorage().owners.contains(recovered.toSetValue())) {
-            return 0;
+        uint8 signatureType = uint8(userOp.signature[0]);
+        if (signatureType == uint8(SignatureTypes.EOA)) {
+            // EOA signature
+            bytes32 signedHash = userOpHash.toEthSignedMessageHash();
+            bytes memory signature = userOp.signature[1:];
+            return _successToValidationData(_isValidEOAOwnerSignature(signedHash, signature));
+        } else if (signatureType == uint8(SignatureTypes.CONTRACT)) {
+            // Contract signature without address
+            bytes memory signature = userOp.signature[1:];
+            return _successToValidationData(_isValidContractOwnerSignatureNowLoop(userOpHash, signature));
+        } else if (signatureType == uint8(SignatureTypes.CONTRACT_WITH_ADDR)) {
+            // Contract signature with address
+            address contractOwner = address(bytes20(userOp.signature[1:21]));
+            bytes memory signature = userOp.signature[21:];
+            return
+                _successToValidationData(_isValidContractOwnerSignatureNowSingle(contractOwner, userOpHash, signature));
         }
-        if (_isValidERC1271SignatureNow(userOpHash, signature)) {
-            return 0;
-        }
-        return SIG_VALIDATION_FAILED;
+
+        revert InvalidSignatureType();
     }
 
-    function _isValidERC1271SignatureNow(bytes32 digest, bytes memory signature) internal view returns (bool) {
+    /// @notice Check if the signature is a valid by an EOA owner for the given digest.
+    /// @dev Only supports 65-byte signatures, and uses the digest directly.
+    /// @param digest The digest to be checked.
+    /// @param signature The signature to be checked.
+    /// @return True if the signature is valid and by an owner, false otherwise.
+    function _isValidEOAOwnerSignature(bytes32 digest, bytes memory signature) internal view returns (bool) {
+        (address recovered, ECDSA.RecoverError error,) = digest.tryRecover(signature);
+        return error == ECDSA.RecoverError.NoError && _getStorage().owners.contains(recovered.toSetValue());
+    }
+
+    /// @notice Check if the given verifier is a contract owner, and if the signature is a valid ERC-1271 signature by
+    /// a contract owner for the given digest.
+    /// @param contractOwner The address of the contract owner.
+    /// @param digest The digest to be checked.
+    /// @param signature The signature to be checked.
+    /// @return True if the signature is valid and by an owner, false otherwise.
+    function _isValidContractOwnerSignatureNowSingle(address contractOwner, bytes32 digest, bytes memory signature)
+        internal
+        view
+        returns (bool)
+    {
+        return SignatureChecker.isValidERC1271SignatureNow(contractOwner, digest, signature)
+            && _getStorage().owners.contains(contractOwner.toSetValue());
+    }
+
+    /// @notice Check if the signature is a valid ERC-1271 signature by a contract owner for the given digest by
+    /// checking all owners in a loop.
+    /// @dev Susceptible to denial-of-service by a malicious owner contract. To avoid this, use a signature type that
+    /// includes the owner address.
+    /// @param digest The digest to be checked.
+    /// @param signature The signature to be checked.
+    /// @return True if the signature is valid and by an owner, false otherwise.
+    function _isValidContractOwnerSignatureNowLoop(bytes32 digest, bytes memory signature)
+        internal
+        view
+        returns (bool)
+    {
         LightAccountStorage storage _storage = _getStorage();
         address[] memory owners_ = _storage.owners.getAll().toAddressArray();
         uint256 length = owners_.length;
@@ -160,6 +225,16 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
             }
         }
         return false;
+    }
+
+    /// @dev Convert a boolean success value to a validation data value.
+    /// @param success The success value to be converted.
+    /// @return validationData The validation data value. 0 if success is true, 1 (SIG_VALIDATION_FAILED) if
+    /// success is false.
+    function _successToValidationData(bool success) internal pure returns (uint256 validationData) {
+        assembly ("memory-safe") {
+            validationData := iszero(success)
+        }
     }
 
     /// @dev The signature is valid if it is signed by the owner's private key (if the owner is an EOA) or if it is a
@@ -173,7 +248,7 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
     {
         (address recovered, ECDSA.RecoverError error,) = derivedHash.tryRecover(trimmedSignature);
         return (error == ECDSA.RecoverError.NoError && _getStorage().owners.contains(recovered.toSetValue()))
-            || _isValidERC1271SignatureNow(derivedHash, trimmedSignature);
+            || _isValidContractOwnerSignatureNowLoop(derivedHash, trimmedSignature);
     }
 
     function _domainNameAndVersion()

@@ -72,12 +72,30 @@ contract MultiOwnerLightAccountTest is Test {
         assertTrue(lightSwitch.on());
     }
 
-    function testExecutedCanBeCalledByEntryPointWithContractOwner() public {
+    function testExecuteCanBeCalledByEntryPointWithContractOwnerUnspecified() public {
         _useContractOwner();
         PackedUserOperation memory op = _getUnsignedOp(
             abi.encodeCall(BaseLightAccount.execute, (address(lightSwitch), 0, abi.encodeCall(LightSwitch.turnOn, ())))
         );
-        op.signature = contractOwner.sign(entryPoint.getUserOpHash(op));
+        op.signature = abi.encodePacked(
+            MultiOwnerLightAccount.SignatureTypes.CONTRACT, contractOwner.sign(entryPoint.getUserOpHash(op))
+        );
+        PackedUserOperation[] memory ops = new PackedUserOperation[](1);
+        ops[0] = op;
+        entryPoint.handleOps(ops, BENEFICIARY);
+        assertTrue(lightSwitch.on());
+    }
+
+    function testExecuteCanBeCalledByEntryPointWithContractOwnerSpecified() public {
+        _useContractOwner();
+        PackedUserOperation memory op = _getUnsignedOp(
+            abi.encodeCall(BaseLightAccount.execute, (address(lightSwitch), 0, abi.encodeCall(LightSwitch.turnOn, ())))
+        );
+        op.signature = abi.encodePacked(
+            MultiOwnerLightAccount.SignatureTypes.CONTRACT_WITH_ADDR,
+            contractOwner,
+            contractOwner.sign(entryPoint.getUserOpHash(op))
+        );
         PackedUserOperation[] memory ops = new PackedUserOperation[](1);
         ops[0] = op;
         entryPoint.handleOps(ops, BENEFICIARY);
@@ -92,6 +110,57 @@ contract MultiOwnerLightAccountTest is Test {
         PackedUserOperation[] memory ops = new PackedUserOperation[](1);
         ops[0] = op;
         vm.expectRevert(abi.encodeWithSelector(IEntryPoint.FailedOp.selector, 0, "AA24 signature error"));
+        entryPoint.handleOps(ops, BENEFICIARY);
+    }
+
+    function testRejectsUserOpWithInvalidContractOwnerSpecified() public {
+        PackedUserOperation memory op = _getUnsignedOp(
+            abi.encodeCall(BaseLightAccount.execute, (address(lightSwitch), 0, abi.encodeCall(LightSwitch.turnOn, ())))
+        );
+        op.signature = abi.encodePacked(
+            MultiOwnerLightAccount.SignatureTypes.CONTRACT_WITH_ADDR,
+            contractOwner,
+            contractOwner.sign(entryPoint.getUserOpHash(op))
+        );
+        PackedUserOperation[] memory ops = new PackedUserOperation[](1);
+        ops[0] = op;
+        vm.expectRevert(abi.encodeWithSelector(IEntryPoint.FailedOp.selector, 0, "AA24 signature error"));
+        entryPoint.handleOps(ops, BENEFICIARY);
+        assertFalse(lightSwitch.on());
+    }
+
+    function testRejectsUserOpWithPartialContractOwnerSpecified() public {
+        _useContractOwner();
+        PackedUserOperation memory op = _getUnsignedOp(
+            abi.encodeCall(BaseLightAccount.execute, (address(lightSwitch), 0, abi.encodeCall(LightSwitch.turnOn, ())))
+        );
+        op.signature = abi.encodePacked(
+            MultiOwnerLightAccount.SignatureTypes.CONTRACT_WITH_ADDR, bytes10(bytes20(address(contractOwner)))
+        );
+        PackedUserOperation[] memory ops = new PackedUserOperation[](1);
+        ops[0] = op;
+        vm.expectRevert(abi.encodeWithSelector(IEntryPoint.FailedOpWithRevert.selector, 0, "AA23 reverted", bytes("")));
+        entryPoint.handleOps(ops, BENEFICIARY);
+        assertFalse(lightSwitch.on());
+    }
+
+    function testFuzz_rejectsUserOpsWithInvalidSignatureType(uint8 signatureType) public {
+        signatureType = uint8(bound(signatureType, 3, type(uint8).max));
+
+        PackedUserOperation memory op = _getUnsignedOp(
+            abi.encodeCall(BaseLightAccount.execute, (address(lightSwitch), 0, abi.encodeCall(LightSwitch.turnOn, ())))
+        );
+        op.signature = abi.encodePacked(signatureType);
+        PackedUserOperation[] memory ops = new PackedUserOperation[](1);
+        ops[0] = op;
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IEntryPoint.FailedOpWithRevert.selector,
+                0,
+                "AA23 reverted",
+                abi.encodePacked(MultiOwnerLightAccount.InvalidSignatureType.selector)
+            )
+        );
         entryPoint.handleOps(ops, BENEFICIARY);
     }
 
@@ -323,6 +392,14 @@ contract MultiOwnerLightAccountTest is Test {
         assertEq(owners[0], eoaAddress);
     }
 
+    function testRemoveNonexistantOwner() public {
+        address[] memory ownersToRemove = new address[](1);
+        ownersToRemove[0] = address(0x100);
+        vm.prank(eoaAddress);
+        vm.expectRevert(abi.encodeWithSelector(MultiOwnerLightAccount.OwnerDoesNotExist.selector, (address(0x100))));
+        account.updateOwners(new address[](0), ownersToRemove);
+    }
+
     function testEntryPointGetter() public {
         assertEq(address(account.entryPoint()), address(entryPoint));
     }
@@ -499,7 +576,7 @@ contract MultiOwnerLightAccountTest is Test {
                     bytes32(uint256(uint160(0x0000000071727De22E5E9d8BAf0edAc6f37da032)))
                 )
             ),
-            0x3765ef442bfa3b5ef7a30073b39949186919dd2344bb5aa0736a0e0be66ebfe1
+            0xc673ee55a4508417eef16886472aeca3661be5e66bf59521dee374cf0021fa13
         );
     }
 
@@ -536,7 +613,10 @@ contract MultiOwnerLightAccountTest is Test {
         returns (PackedUserOperation memory)
     {
         PackedUserOperation memory op = _getUnsignedOp(callData);
-        op.signature = _sign(privateKey, entryPoint.getUserOpHash(op).toEthSignedMessageHash());
+        op.signature = abi.encodePacked(
+            MultiOwnerLightAccount.SignatureTypes.EOA,
+            _sign(privateKey, entryPoint.getUserOpHash(op).toEthSignedMessageHash())
+        );
         return op;
     }
 
