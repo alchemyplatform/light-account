@@ -6,6 +6,7 @@ import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/Messa
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
 import {PackedUserOperation} from "account-abstraction/interfaces/PackedUserOperation.sol";
+import {SIG_VALIDATION_FAILED, SIG_VALIDATION_SUCCESS} from "account-abstraction/core/Helpers.sol";
 import {CastLib} from "modular-account/helpers/CastLib.sol";
 import {SetValue} from "modular-account/libraries/Constants.sol";
 import {LinkedListSet, LinkedListSetLib} from "modular-account/libraries/LinkedListSetLib.sol";
@@ -232,9 +233,7 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
     /// @return validationData The validation data value. 0 if success is true, 1 (SIG_VALIDATION_FAILED) if
     /// success is false.
     function _successToValidationData(bool success) internal pure returns (uint256 validationData) {
-        assembly ("memory-safe") {
-            validationData := iszero(success)
-        }
+        return success ? SIG_VALIDATION_SUCCESS : SIG_VALIDATION_FAILED;
     }
 
     /// @dev The signature is valid if it is signed by the owner's private key (if the owner is an EOA) or if it is a
