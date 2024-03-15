@@ -145,7 +145,10 @@ contract MultiOwnerLightAccountTest is Test {
     }
 
     function testFuzz_rejectsUserOpsWithInvalidSignatureType(uint8 signatureType) public {
-        signatureType = uint8(bound(signatureType, 3, type(uint8).max));
+        // Valid values are 0,1,3
+        if (signatureType != 2) {
+            signatureType = uint8(bound(signatureType, 4, type(uint8).max));
+        }
 
         PackedUserOperation memory op = _getUnsignedOp(
             abi.encodeCall(BaseLightAccount.execute, (address(lightSwitch), 0, abi.encodeCall(LightSwitch.turnOn, ())))
@@ -576,7 +579,7 @@ contract MultiOwnerLightAccountTest is Test {
                     bytes32(uint256(uint160(0x0000000071727De22E5E9d8BAf0edAc6f37da032)))
                 )
             ),
-            0x3b81b3fa5e00c31f57c12db971bb4fbf4d1eee382ae26b211b2165efbbe07437
+            0x0a14a7d2e0fb6858a618de8e4a7cf52bd1cb8dad3f4adbf243078a4db5f13c92
         );
     }
 

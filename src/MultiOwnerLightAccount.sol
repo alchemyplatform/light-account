@@ -39,8 +39,8 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
     enum SignatureTypes {
         EOA, // 0
         CONTRACT, // 1
-        CONTRACT_WITH_ADDR, // 2
-        empty_1, // skip 3 to align bitmap
+        empty_1, // skip 2 to align bitmap
+        CONTRACT_WITH_ADDR, // 3
         TRANSPARENT_EOA, // 4
         TRANSPARENT_CONTRACT, // 5
         empty_2, // skip 6 to align bitmap
