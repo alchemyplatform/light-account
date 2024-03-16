@@ -7,7 +7,7 @@ import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
 import {PackedUserOperation} from "account-abstraction/interfaces/PackedUserOperation.sol";
 import {TokenCallbackHandler} from "account-abstraction/samples/callback/TokenCallbackHandler.sol";
 
-import {UUPSUpgradeable} from "../../ext/solady/UUPSUpgradeable.sol";
+import {UUPSUpgradeable} from "../external/solady/UUPSUpgradeable.sol";
 import {ERC1271} from "./ERC1271.sol";
 
 abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, ERC1271 {

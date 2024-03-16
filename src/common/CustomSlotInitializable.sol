@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
-// OpenZeppelin Contracts (last updated v4.9.0) (proxy/utils/Initializable.sol)
+// OpenZeppelin Contracts (last updated v5.0.0) (proxy/utils/Initializable.sol)
 
 pragma solidity ^0.8.23;
 
-/// @dev Identical to OpenZeppelin's `Initializable`, except that its state variables are kept at a custom storage slot
-/// instead of at the start of storage.
+/// @dev Identical to OpenZeppelin's `Initializable`, except that custom storage slots can be used.
 ///
 /// This is a base contract to aid in writing upgradeable contracts, or any kind of contract that will be deployed
 /// behind a proxy. Since proxied contracts do not make use of a constructor, it's common to move constructor logic to an
@@ -146,10 +145,15 @@ abstract contract CustomSlotInitializable {
     /// @dev Modifier to protect an initialization function so that it can only be invoked by functions with the
     /// {initializer} and {reinitializer} modifiers, directly or indirectly.
     modifier onlyInitializing() {
+        _checkInitializing();
+        _;
+    }
+
+    /// @dev Reverts if the contract is not in an initializing state. See {onlyInitializing}.
+    function _checkInitializing() internal view virtual {
         if (!_isInitializing()) {
             revert NotInitializing();
         }
-        _;
     }
 
     /// @dev Locks the contract, preventing any future reinitialization. This cannot be part of an initializer call.

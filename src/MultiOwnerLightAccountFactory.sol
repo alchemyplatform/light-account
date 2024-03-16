@@ -3,7 +3,7 @@ pragma solidity ^0.8.23;
 
 import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
 
-import {LibClone} from "../ext/solady/LibClone.sol";
+import {LibClone} from "./external/solady/LibClone.sol";
 import {MultiOwnerLightAccount} from "./MultiOwnerLightAccount.sol";
 
 /// @title A factory contract for MultiOwnerLightAccount.
