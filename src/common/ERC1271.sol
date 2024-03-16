@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {EIP712} from "../../ext/solady/EIP712.sol";
+import {EIP712} from "../external/solady/EIP712.sol";
 
 /// @title ERC-1271 implementation using nested EIP-712 for replay protection.
 /// @dev Identical to Solady's ERC1271, with a minor change to support overriding the signature verification logic.
