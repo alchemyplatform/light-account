@@ -74,7 +74,8 @@ contract LightAccountTest is Test {
         PackedUserOperation memory op = _getUnsignedOp(
             abi.encodeCall(BaseLightAccount.execute, (address(lightSwitch), 0, abi.encodeCall(LightSwitch.turnOn, ())))
         );
-        op.signature = contractOwner.sign(entryPoint.getUserOpHash(op));
+        op.signature =
+            abi.encodePacked(BaseLightAccount.SignatureType.CONTRACT, contractOwner.sign(entryPoint.getUserOpHash(op)));
         PackedUserOperation[] memory ops = new PackedUserOperation[](1);
         ops[0] = op;
         entryPoint.handleOps(ops, BENEFICIARY);
@@ -89,6 +90,26 @@ contract LightAccountTest is Test {
         PackedUserOperation[] memory ops = new PackedUserOperation[](1);
         ops[0] = op;
         vm.expectRevert(abi.encodeWithSelector(IEntryPoint.FailedOp.selector, 0, "AA24 signature error"));
+        entryPoint.handleOps(ops, BENEFICIARY);
+    }
+
+    function testFuzz_rejectsUserOpsWithInvalidSignatureType(uint8 signatureType) public {
+        signatureType = uint8(bound(signatureType, 2, type(uint8).max));
+
+        PackedUserOperation memory op = _getUnsignedOp(
+            abi.encodeCall(BaseLightAccount.execute, (address(lightSwitch), 0, abi.encodeCall(LightSwitch.turnOn, ())))
+        );
+        op.signature = abi.encodePacked(signatureType);
+        PackedUserOperation[] memory ops = new PackedUserOperation[](1);
+        ops[0] = op;
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IEntryPoint.FailedOpWithRevert.selector,
+                0,
+                "AA23 reverted",
+                abi.encodePacked(BaseLightAccount.InvalidSignatureType.selector)
+            )
+        );
         entryPoint.handleOps(ops, BENEFICIARY);
     }
 
@@ -283,7 +304,11 @@ contract LightAccountTest is Test {
     function testIsValidSignatureForEoaOwner() public {
         bytes32 child = keccak256(abi.encode(_CHILD_TYPEHASH, "hello world"));
         bytes memory signature = abi.encodePacked(
-            _sign(EOA_PRIVATE_KEY, _toERC1271Hash(child)), _PARENT_TYPEHASH, _domainSeparatorB(), child
+            BaseLightAccount.SignatureType.EOA,
+            _sign(EOA_PRIVATE_KEY, _toERC1271Hash(child)),
+            _PARENT_TYPEHASH,
+            _domainSeparatorB(),
+            child
         );
         assertEq(
             account.isValidSignature(_toChildHash(child), signature),
@@ -294,8 +319,13 @@ contract LightAccountTest is Test {
     function testIsValidSignatureForContractOwner() public {
         _useContractOwner();
         bytes32 child = keccak256(abi.encode(_CHILD_TYPEHASH, "hello world"));
-        bytes memory signature =
-            abi.encodePacked(contractOwner.sign(_toERC1271Hash(child)), _PARENT_TYPEHASH, _domainSeparatorB(), child);
+        bytes memory signature = abi.encodePacked(
+            BaseLightAccount.SignatureType.CONTRACT,
+            contractOwner.sign(_toERC1271Hash(child)),
+            _PARENT_TYPEHASH,
+            _domainSeparatorB(),
+            child
+        );
         assertEq(
             account.isValidSignature(_toChildHash(child), signature),
             bytes4(keccak256("isValidSignature(bytes32,bytes)"))
@@ -320,8 +350,11 @@ contract LightAccountTest is Test {
         string memory message = "hello world";
         bytes32 childHash =
             keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n", bytes(message).length, message));
-        bytes memory signature =
-            abi.encodePacked(_sign(EOA_PRIVATE_KEY, _toERC1271HashPersonalSign(childHash)), _PARENT_TYPEHASH);
+        bytes memory signature = abi.encodePacked(
+            BaseLightAccount.SignatureType.EOA,
+            _sign(EOA_PRIVATE_KEY, _toERC1271HashPersonalSign(childHash)),
+            _PARENT_TYPEHASH
+        );
         assertEq(account.isValidSignature(childHash, signature), bytes4(keccak256("isValidSignature(bytes32,bytes)")));
     }
 
@@ -330,8 +363,11 @@ contract LightAccountTest is Test {
         string memory message = "hello world";
         bytes32 childHash =
             keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n", bytes(message).length, message));
-        bytes memory signature =
-            abi.encodePacked(contractOwner.sign(_toERC1271HashPersonalSign(childHash)), _PARENT_TYPEHASH);
+        bytes memory signature = abi.encodePacked(
+            BaseLightAccount.SignatureType.CONTRACT,
+            contractOwner.sign(_toERC1271HashPersonalSign(childHash)),
+            _PARENT_TYPEHASH
+        );
         assertEq(account.isValidSignature(childHash, signature), bytes4(keccak256("isValidSignature(bytes32,bytes)")));
     }
 
@@ -451,7 +487,7 @@ contract LightAccountTest is Test {
                     bytes32(uint256(uint160(0x0000000071727De22E5E9d8BAf0edAc6f37da032)))
                 )
             ),
-            0x7ea0ecf5a976ba72e9bde105c40012e55ee74088186c29da658ec325a8f586c4
+            0x6aa8e89cd8a2df2df153f6959aace173a48e4ecedde04f7dc09add425d88a7e2
         );
     }
 
@@ -484,7 +520,9 @@ contract LightAccountTest is Test {
         returns (PackedUserOperation memory)
     {
         PackedUserOperation memory op = _getUnsignedOp(callData);
-        op.signature = _sign(privateKey, entryPoint.getUserOpHash(op).toEthSignedMessageHash());
+        op.signature = abi.encodePacked(
+            BaseLightAccount.SignatureType.EOA, _sign(privateKey, entryPoint.getUserOpHash(op).toEthSignedMessageHash())
+        );
         return op;
     }
 

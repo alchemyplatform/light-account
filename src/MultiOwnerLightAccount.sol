@@ -6,7 +6,6 @@ import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/Messa
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
 import {PackedUserOperation} from "account-abstraction/interfaces/PackedUserOperation.sol";
-import {SIG_VALIDATION_FAILED, SIG_VALIDATION_SUCCESS} from "account-abstraction/core/Helpers.sol";
 import {CastLib} from "modular-account/helpers/CastLib.sol";
 import {SetValue} from "modular-account/libraries/Constants.sol";
 import {LinkedListSet, LinkedListSetLib} from "modular-account/libraries/LinkedListSetLib.sol";
@@ -29,13 +28,6 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
     // keccak256(abi.encode(uint256(keccak256("multi_owner_light_account_v1.initializable")) - 1)) & ~bytes32(uint256(0xff));
     bytes32 internal constant _INITIALIZABLE_STORAGE_POSITION =
         0xaa296a366a62f6551d3ddfceae892d1791068a359a0d3461aab99dfc6c5fd700;
-
-    // Signature types used for user operation validation and ERC-1271 signature validation.
-    enum SignatureTypes {
-        EOA,
-        CONTRACT,
-        CONTRACT_WITH_ADDR
-    }
 
     struct LightAccountStorage {
         LinkedListSet owners;
@@ -60,9 +52,6 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
 
     /// @dev The owner to be removed does not exist.
     error OwnerDoesNotExist(address owner);
-
-    /// @dev The signature type provided is not valid.
-    error InvalidSignatureType();
 
     constructor(IEntryPoint entryPoint_) CustomSlotInitializable(_INITIALIZABLE_STORAGE_POSITION) {
         _ENTRY_POINT = entryPoint_;
@@ -149,16 +138,16 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
         returns (uint256 validationData)
     {
         uint8 signatureType = uint8(userOp.signature[0]);
-        if (signatureType == uint8(SignatureTypes.EOA)) {
+        if (signatureType == uint8(SignatureType.EOA)) {
             // EOA signature
             bytes32 signedHash = userOpHash.toEthSignedMessageHash();
             bytes memory signature = userOp.signature[1:];
             return _successToValidationData(_isValidEOAOwnerSignature(signedHash, signature));
-        } else if (signatureType == uint8(SignatureTypes.CONTRACT)) {
+        } else if (signatureType == uint8(SignatureType.CONTRACT)) {
             // Contract signature without address
             bytes memory signature = userOp.signature[1:];
             return _successToValidationData(_isValidContractOwnerSignatureNowLoop(userOpHash, signature));
-        } else if (signatureType == uint8(SignatureTypes.CONTRACT_WITH_ADDR)) {
+        } else if (signatureType == uint8(SignatureType.CONTRACT_WITH_ADDR)) {
             // Contract signature with address
             address contractOwner = address(bytes20(userOp.signature[1:21]));
             bytes memory signature = userOp.signature[21:];
@@ -217,14 +206,6 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
         return false;
     }
 
-    /// @dev Convert a boolean success value to a validation data value.
-    /// @param success The success value to be converted.
-    /// @return validationData The validation data value. 0 if success is true, 1 (SIG_VALIDATION_FAILED) if
-    /// success is false.
-    function _successToValidationData(bool success) internal pure returns (uint256 validationData) {
-        return success ? SIG_VALIDATION_SUCCESS : SIG_VALIDATION_FAILED;
-    }
-
     /// @dev The signature is valid if it is signed by the owner's private key (if the owner is an EOA) or if it is a
     /// valid ERC-1271 signature from the owner (if the owner is a contract).
     function _isValidSignature(bytes32 derivedHash, bytes calldata trimmedSignature)
@@ -238,15 +219,15 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
             return false;
         }
         uint8 signatureType = uint8(trimmedSignature[0]);
-        if (signatureType == uint8(SignatureTypes.EOA)) {
-            // EOA signature;
+        if (signatureType == uint8(SignatureType.EOA)) {
+            // EOA signature
             bytes memory signature = trimmedSignature[1:];
             return _isValidEOAOwnerSignature(derivedHash, signature);
-        } else if (signatureType == uint8(SignatureTypes.CONTRACT)) {
+        } else if (signatureType == uint8(SignatureType.CONTRACT)) {
             // Contract signature without address
             bytes memory signature = trimmedSignature[1:];
             return _isValidContractOwnerSignatureNowLoop(derivedHash, signature);
-        } else if (signatureType == uint8(SignatureTypes.CONTRACT_WITH_ADDR)) {
+        } else if (signatureType == uint8(SignatureType.CONTRACT_WITH_ADDR)) {
             // Contract signature with address
             address contractOwner = address(bytes20(trimmedSignature[1:21]));
             bytes memory signature = trimmedSignature[21:];

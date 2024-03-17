@@ -124,17 +124,37 @@ contract LightAccount is BaseLightAccount, CustomSlotInitializable {
         override
         returns (uint256 validationData)
     {
-        address owner_ = owner();
-        bytes32 signedHash = userOpHash.toEthSignedMessageHash();
-        bytes memory signature = userOp.signature;
-        (address recovered, ECDSA.RecoverError error,) = signedHash.tryRecover(signature);
-        if (
-            (error == ECDSA.RecoverError.NoError && recovered == owner_)
-                || SignatureChecker.isValidERC1271SignatureNow(owner_, userOpHash, signature)
-        ) {
-            return 0;
+        uint8 signatureType = uint8(userOp.signature[0]);
+        if (signatureType == uint8(SignatureType.EOA)) {
+            // EOA signature
+            bytes32 signedHash = userOpHash.toEthSignedMessageHash();
+            bytes memory signature = userOp.signature[1:];
+            return _successToValidationData(_isValidEOAOwnerSignature(signedHash, signature));
+        } else if (signatureType == uint8(SignatureType.CONTRACT)) {
+            // Contract signature without address
+            bytes memory signature = userOp.signature[1:];
+            return _successToValidationData(_isValidContractOwnerSignatureNow(userOpHash, signature));
         }
-        return SIG_VALIDATION_FAILED;
+
+        revert InvalidSignatureType();
+    }
+
+    /// @notice Check if the signature is a valid by the EOA owner for the given digest.
+    /// @dev Only supports 65-byte signatures, and uses the digest directly.
+    /// @param digest The digest to be checked.
+    /// @param signature The signature to be checked.
+    /// @return True if the signature is valid and by the owner, false otherwise.
+    function _isValidEOAOwnerSignature(bytes32 digest, bytes memory signature) internal view returns (bool) {
+        (address recovered, ECDSA.RecoverError error,) = digest.tryRecover(signature);
+        return error == ECDSA.RecoverError.NoError && recovered == owner();
+    }
+
+    /// @notice Check if the signature is a valid ERC-1271 signature by a contract owner for the given digest.
+    /// @param digest The digest to be checked.
+    /// @param signature The signature to be checked.
+    /// @return True if the signature is valid and by an owner, false otherwise.
+    function _isValidContractOwnerSignatureNow(bytes32 digest, bytes memory signature) internal view returns (bool) {
+        return SignatureChecker.isValidERC1271SignatureNow(owner(), digest, signature);
     }
 
     /// @dev The signature is valid if it is signed by the owner's private key (if the owner is an EOA) or if it is a
@@ -146,7 +166,20 @@ contract LightAccount is BaseLightAccount, CustomSlotInitializable {
         override
         returns (bool)
     {
-        return SignatureChecker.isValidSignatureNow(owner(), derivedHash, trimmedSignature);
+        if (trimmedSignature.length < 1) {
+            return false;
+        }
+        uint8 signatureType = uint8(trimmedSignature[0]);
+        if (signatureType == uint8(SignatureType.EOA)) {
+            // EOA signature
+            bytes memory signature = trimmedSignature[1:];
+            return _isValidEOAOwnerSignature(derivedHash, signature);
+        } else if (signatureType == uint8(SignatureType.CONTRACT)) {
+            // Contract signature without address
+            bytes memory signature = trimmedSignature[1:];
+            return _isValidContractOwnerSignatureNow(derivedHash, signature);
+        }
+        return false;
     }
 
     function _domainNameAndVersion()
