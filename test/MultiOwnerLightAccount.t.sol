@@ -77,9 +77,8 @@ contract MultiOwnerLightAccountTest is Test {
         PackedUserOperation memory op = _getUnsignedOp(
             abi.encodeCall(BaseLightAccount.execute, (address(lightSwitch), 0, abi.encodeCall(LightSwitch.turnOn, ())))
         );
-        op.signature = abi.encodePacked(
-            MultiOwnerLightAccount.SignatureTypes.CONTRACT, contractOwner.sign(entryPoint.getUserOpHash(op))
-        );
+        op.signature =
+            abi.encodePacked(BaseLightAccount.SignatureType.CONTRACT, contractOwner.sign(entryPoint.getUserOpHash(op)));
         PackedUserOperation[] memory ops = new PackedUserOperation[](1);
         ops[0] = op;
         entryPoint.handleOps(ops, BENEFICIARY);
@@ -92,7 +91,7 @@ contract MultiOwnerLightAccountTest is Test {
             abi.encodeCall(BaseLightAccount.execute, (address(lightSwitch), 0, abi.encodeCall(LightSwitch.turnOn, ())))
         );
         op.signature = abi.encodePacked(
-            MultiOwnerLightAccount.SignatureTypes.CONTRACT_WITH_ADDR,
+            BaseLightAccount.SignatureType.CONTRACT_WITH_ADDR,
             contractOwner,
             contractOwner.sign(entryPoint.getUserOpHash(op))
         );
@@ -118,7 +117,7 @@ contract MultiOwnerLightAccountTest is Test {
             abi.encodeCall(BaseLightAccount.execute, (address(lightSwitch), 0, abi.encodeCall(LightSwitch.turnOn, ())))
         );
         op.signature = abi.encodePacked(
-            MultiOwnerLightAccount.SignatureTypes.CONTRACT_WITH_ADDR,
+            BaseLightAccount.SignatureType.CONTRACT_WITH_ADDR,
             contractOwner,
             contractOwner.sign(entryPoint.getUserOpHash(op))
         );
@@ -135,7 +134,7 @@ contract MultiOwnerLightAccountTest is Test {
             abi.encodeCall(BaseLightAccount.execute, (address(lightSwitch), 0, abi.encodeCall(LightSwitch.turnOn, ())))
         );
         op.signature = abi.encodePacked(
-            MultiOwnerLightAccount.SignatureTypes.CONTRACT_WITH_ADDR, bytes10(bytes20(address(contractOwner)))
+            BaseLightAccount.SignatureType.CONTRACT_WITH_ADDR, bytes10(bytes20(address(contractOwner)))
         );
         PackedUserOperation[] memory ops = new PackedUserOperation[](1);
         ops[0] = op;
@@ -158,7 +157,7 @@ contract MultiOwnerLightAccountTest is Test {
                 IEntryPoint.FailedOpWithRevert.selector,
                 0,
                 "AA23 reverted",
-                abi.encodePacked(MultiOwnerLightAccount.InvalidSignatureType.selector)
+                abi.encodePacked(BaseLightAccount.InvalidSignatureType.selector)
             )
         );
         entryPoint.handleOps(ops, BENEFICIARY);
@@ -407,7 +406,7 @@ contract MultiOwnerLightAccountTest is Test {
     function testIsValidSignatureForEoaOwner() public {
         bytes32 child = keccak256(abi.encode(_CHILD_TYPEHASH, "hello world"));
         bytes memory signature = abi.encodePacked(
-            MultiOwnerLightAccount.SignatureTypes.EOA,
+            BaseLightAccount.SignatureType.EOA,
             _sign(EOA_PRIVATE_KEY, _toERC1271Hash(child)),
             _PARENT_TYPEHASH,
             _domainSeparatorB(),
@@ -423,7 +422,7 @@ contract MultiOwnerLightAccountTest is Test {
         _useContractOwner();
         bytes32 child = keccak256(abi.encode(_CHILD_TYPEHASH, "hello world"));
         bytes memory signature = abi.encodePacked(
-            MultiOwnerLightAccount.SignatureTypes.CONTRACT,
+            BaseLightAccount.SignatureType.CONTRACT,
             contractOwner.sign(_toERC1271Hash(child)),
             _PARENT_TYPEHASH,
             _domainSeparatorB(),
@@ -439,7 +438,7 @@ contract MultiOwnerLightAccountTest is Test {
         _useContractOwner();
         bytes32 child = keccak256(abi.encode(_CHILD_TYPEHASH, "hello world"));
         bytes memory signature = abi.encodePacked(
-            MultiOwnerLightAccount.SignatureTypes.CONTRACT_WITH_ADDR,
+            BaseLightAccount.SignatureType.CONTRACT_WITH_ADDR,
             contractOwner,
             contractOwner.sign(_toERC1271Hash(child)),
             _PARENT_TYPEHASH,
@@ -455,7 +454,7 @@ contract MultiOwnerLightAccountTest is Test {
     function testIsValidSignatureRejectsInvalidEOA() public {
         bytes32 child = keccak256(abi.encode(_CHILD_TYPEHASH, "hello world"));
         bytes memory signature = abi.encodePacked(
-            MultiOwnerLightAccount.SignatureTypes.EOA,
+            BaseLightAccount.SignatureType.EOA,
             _sign(123, _toERC1271Hash(child)),
             _PARENT_TYPEHASH,
             _domainSeparatorB(),
@@ -464,7 +463,7 @@ contract MultiOwnerLightAccountTest is Test {
         assertEq(account.isValidSignature(_toChildHash(child), signature), bytes4(0xffffffff));
 
         signature = abi.encodePacked(
-            MultiOwnerLightAccount.SignatureTypes.EOA,
+            BaseLightAccount.SignatureType.EOA,
             _sign(EOA_PRIVATE_KEY, _toERC1271Hash(child)),
             _PARENT_TYPEHASH,
             _domainSeparatorA(),
@@ -473,7 +472,7 @@ contract MultiOwnerLightAccountTest is Test {
         assertEq(account.isValidSignature(_toChildHash(child), signature), bytes4(0xffffffff));
 
         assertEq(
-            account.isValidSignature(_toChildHash(child), abi.encodePacked(MultiOwnerLightAccount.SignatureTypes.EOA)),
+            account.isValidSignature(_toChildHash(child), abi.encodePacked(BaseLightAccount.SignatureType.EOA)),
             bytes4(0xffffffff)
         );
     }
@@ -482,7 +481,7 @@ contract MultiOwnerLightAccountTest is Test {
         // Signature should fail, because the contract owner is not an owner
         bytes32 child = keccak256(abi.encode(_CHILD_TYPEHASH, "hello world"));
         bytes memory signature = abi.encodePacked(
-            MultiOwnerLightAccount.SignatureTypes.CONTRACT,
+            BaseLightAccount.SignatureType.CONTRACT,
             contractOwner.sign(_toERC1271Hash(child)),
             _PARENT_TYPEHASH,
             _domainSeparatorB(),
@@ -506,7 +505,7 @@ contract MultiOwnerLightAccountTest is Test {
         bytes32 childHash =
             keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n", bytes(message).length, message));
         bytes memory signature = abi.encodePacked(
-            MultiOwnerLightAccount.SignatureTypes.EOA,
+            BaseLightAccount.SignatureType.EOA,
             _sign(EOA_PRIVATE_KEY, _toERC1271HashPersonalSign(childHash)),
             _PARENT_TYPEHASH
         );
@@ -519,7 +518,7 @@ contract MultiOwnerLightAccountTest is Test {
         bytes32 childHash =
             keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n", bytes(message).length, message));
         bytes memory signature = abi.encodePacked(
-            MultiOwnerLightAccount.SignatureTypes.CONTRACT,
+            BaseLightAccount.SignatureType.CONTRACT,
             contractOwner.sign(_toERC1271HashPersonalSign(childHash)),
             _PARENT_TYPEHASH
         );
@@ -532,7 +531,7 @@ contract MultiOwnerLightAccountTest is Test {
         bytes32 childHash =
             keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n", bytes(message).length, message));
         bytes memory signature = abi.encodePacked(
-            MultiOwnerLightAccount.SignatureTypes.CONTRACT_WITH_ADDR,
+            BaseLightAccount.SignatureType.CONTRACT_WITH_ADDR,
             contractOwner,
             contractOwner.sign(_toERC1271HashPersonalSign(childHash)),
             _PARENT_TYPEHASH
@@ -545,14 +544,12 @@ contract MultiOwnerLightAccountTest is Test {
         bytes32 childHash =
             keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n", bytes(message).length, message));
         bytes memory signature = abi.encodePacked(
-            MultiOwnerLightAccount.SignatureTypes.EOA,
-            _sign(123, _toERC1271HashPersonalSign(childHash)),
-            _PARENT_TYPEHASH
+            BaseLightAccount.SignatureType.EOA, _sign(123, _toERC1271HashPersonalSign(childHash)), _PARENT_TYPEHASH
         );
         assertEq(account.isValidSignature(childHash, signature), bytes4(0xffffffff));
 
         signature = abi.encodePacked(
-            MultiOwnerLightAccount.SignatureTypes.EOA,
+            BaseLightAccount.SignatureType.EOA,
             _sign(EOA_PRIVATE_KEY, _toERC1271HashPersonalSign(childHash)),
             _PARENT_TYPEHASH,
             _domainSeparatorB(),
@@ -561,7 +558,7 @@ contract MultiOwnerLightAccountTest is Test {
         assertEq(account.isValidSignature(childHash, signature), bytes4(0xffffffff));
 
         assertEq(
-            account.isValidSignature(childHash, abi.encodePacked(MultiOwnerLightAccount.SignatureTypes.EOA)),
+            account.isValidSignature(childHash, abi.encodePacked(BaseLightAccount.SignatureType.EOA)),
             bytes4(0xffffffff)
         );
     }
@@ -665,7 +662,7 @@ contract MultiOwnerLightAccountTest is Test {
                     bytes32(uint256(uint160(0x0000000071727De22E5E9d8BAf0edAc6f37da032)))
                 )
             ),
-            0xfdd9cc7620f87cc7b148fd9cbcd5182b03d21a26747e13e17ef49c2939b828a9
+            0x5f04ff963bc2b9faa9a30beff91afc7cdf84f8a52f369b70060fe0f41b0504df
         );
     }
 
@@ -703,8 +700,7 @@ contract MultiOwnerLightAccountTest is Test {
     {
         PackedUserOperation memory op = _getUnsignedOp(callData);
         op.signature = abi.encodePacked(
-            MultiOwnerLightAccount.SignatureTypes.EOA,
-            _sign(privateKey, entryPoint.getUserOpHash(op).toEthSignedMessageHash())
+            BaseLightAccount.SignatureType.EOA, _sign(privateKey, entryPoint.getUserOpHash(op).toEthSignedMessageHash())
         );
         return op;
     }
