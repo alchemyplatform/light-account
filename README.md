@@ -1,6 +1,16 @@
 # Light Account
 
-A simple ERC-4337 compatible smart contract account with a designated owner account. [Account Kit](https://accountkit.alchemy.com/overview/introduction.html) is the easiest way to integrate Light Account.
+[![gh_ci_badge]][gh_ci_link]\
+[![discord_badge]][discord_link]
+
+[gh_ci_badge]: https://github.com/alchemyplatform/light-account/actions/workflows/test.yml/badge.svg
+[gh_ci_link]: https://github.com/alchemyplatform/light-account/actions/workflows/test.yml
+[discord_badge]: https://dcbadge.vercel.app/api/server/alchemyplatform
+[discord_link]: https://discord.gg/alchemyplatform
+
+![](./img/light-account.jpg)
+
+A simple ERC-4337 compatible smart contract account with a designated owner. [Account Kit](https://accountkit.alchemy.com) is the easiest way to integrate Light Account.
 
 ## Features
 
