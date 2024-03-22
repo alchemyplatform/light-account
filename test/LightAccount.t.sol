@@ -38,7 +38,7 @@ contract LightAccountTest is Test {
     function setUp() public {
         eoaAddress = vm.addr(EOA_PRIVATE_KEY);
         entryPoint = new EntryPoint();
-        LightAccountFactory factory = new LightAccountFactory(entryPoint);
+        LightAccountFactory factory = new LightAccountFactory(address(this), entryPoint);
         account = factory.createAccount(eoaAddress, 1);
         vm.deal(address(account), 1 << 128);
         lightSwitch = new LightSwitch();
@@ -173,14 +173,14 @@ contract LightAccountTest is Test {
     }
 
     function testInitialize() public {
-        LightAccountFactory factory = new LightAccountFactory(entryPoint);
+        LightAccountFactory factory = new LightAccountFactory(address(this), entryPoint);
         vm.expectEmit(true, false, false, false);
         emit Initialized(0);
         account = factory.createAccount(eoaAddress, 1);
     }
 
     function testCannotInitializeWithZeroOwner() public {
-        LightAccountFactory factory = new LightAccountFactory(entryPoint);
+        LightAccountFactory factory = new LightAccountFactory(address(this), entryPoint);
         vm.expectRevert(abi.encodeWithSelector(LightAccount.InvalidOwner.selector, (address(0))));
         account = factory.createAccount(address(0), 1);
     }
@@ -487,7 +487,7 @@ contract LightAccountTest is Test {
                     bytes32(uint256(uint160(0x0000000071727De22E5E9d8BAf0edAc6f37da032)))
                 )
             ),
-            0x6aa8e89cd8a2df2df153f6959aace173a48e4ecedde04f7dc09add425d88a7e2
+            0x10f16a2b2ab8a4a6c680a35494382da995eea00c40bed1fc5391774da7de7fc9
         );
     }
 
