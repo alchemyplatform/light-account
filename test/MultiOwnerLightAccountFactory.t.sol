@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 
 import {EntryPoint} from "account-abstraction/core/EntryPoint.sol";
 
+import {BaseLightAccountFactory} from "../src/common/BaseLightAccountFactory.sol";
 import {MultiOwnerLightAccount} from "../src/MultiOwnerLightAccount.sol";
 import {MultiOwnerLightAccountFactory} from "../src/MultiOwnerLightAccountFactory.sol";
 
@@ -17,7 +18,7 @@ contract MultiOwnerLightAccountFactoryTest is Test {
 
     function setUp() public {
         entryPoint = new EntryPoint();
-        factory = new MultiOwnerLightAccountFactory(entryPoint);
+        factory = new MultiOwnerLightAccountFactory(address(this), entryPoint);
         owners = new address[](1);
         owners[0] = address(1);
     }
@@ -109,4 +110,53 @@ contract MultiOwnerLightAccountFactoryTest is Test {
         vm.expectRevert(MultiOwnerLightAccountFactory.OwnersArrayEmpty.selector);
         factory.createAccount(owners, 1);
     }
+
+    function testAddStake() public {
+        assertEq(entryPoint.balanceOf(address(factory)), 0);
+        vm.deal(address(this), 100 ether);
+        factory.addStake{value: 10 ether}(10 hours, 10 ether);
+        assertEq(entryPoint.getDepositInfo(address(factory)).stake, 10 ether);
+    }
+
+    function testUnlockStake() public {
+        testAddStake();
+        factory.unlockStake();
+        assertEq(entryPoint.getDepositInfo(address(factory)).withdrawTime, block.timestamp + 10 hours);
+    }
+
+    function testWithdrawStake() public {
+        testUnlockStake();
+        vm.warp(10 hours);
+        vm.expectRevert("Stake withdrawal is not due");
+        factory.withdrawStake(payable(address(this)));
+        assertEq(address(this).balance, 90 ether);
+        vm.warp(10 hours + 1);
+        factory.withdrawStake(payable(address(this)));
+        assertEq(address(this).balance, 100 ether);
+    }
+
+    function testWithdraw() public {
+        factory.addStake{value: 10 ether}(10 hours, 1 ether);
+        assertEq(address(factory).balance, 9 ether);
+        factory.withdraw(payable(address(this)), address(0), 0); // amount = balance if native currency
+        assertEq(address(factory).balance, 0);
+    }
+
+    function test2StepOwnershipTransfer() public {
+        address owner1 = address(0x200);
+        assertEq(factory.owner(), address(this));
+        factory.transferOwnership(owner1);
+        assertEq(factory.owner(), address(this));
+        vm.prank(owner1);
+        factory.acceptOwnership();
+        assertEq(factory.owner(), owner1);
+    }
+
+    function testCannotRenounceOwnership() public {
+        vm.expectRevert(BaseLightAccountFactory.InvalidAction.selector);
+        factory.renounceOwnership();
+    }
+
+    /// @dev Receive funds from withdraw.
+    receive() external payable {}
 }

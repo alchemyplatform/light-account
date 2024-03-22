@@ -39,9 +39,10 @@ contract Deploy_LightAccountFactory is Script {
         console.log("******** Deploy ...... *********");
         console.log("********************************");
 
+        // TODO: Use environment variable for factory owner.
         LightAccountFactory factory = new LightAccountFactory{
             salt: 0x4e59b44847b379578588920ca78fbf26c0b4956c5528f3e2f146000008fabf77
-        }(entryPoint);
+        }(msg.sender, entryPoint);
 
         // Deployed address check
         if (address(factory) != 0x00004EC70002a32400f8ae005A26081065620D20) {
@@ -52,7 +53,7 @@ contract Deploy_LightAccountFactory is Script {
         console.logAddress(address(factory));
 
         console.log("Implementation address:");
-        console.logAddress(address(factory.accountImplementation()));
+        console.logAddress(address(factory.ACCOUNT_IMPLEMENTATION()));
         vm.stopBroadcast();
     }
 }

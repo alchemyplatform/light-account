@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.23;
 
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
 
+import {BaseLightAccountFactory} from "./common/BaseLightAccountFactory.sol";
 import {LibClone} from "./external/solady/LibClone.sol";
 import {MultiOwnerLightAccount} from "./MultiOwnerLightAccount.sol";
 
@@ -10,16 +12,17 @@ import {MultiOwnerLightAccount} from "./MultiOwnerLightAccount.sol";
 /// @dev A UserOperations "initCode" holds the address of the factory, and a method call (`createAccount` or
 /// `createAccountSingle`). The factory returns the target account address even if it is already deployed. This way,
 /// `entryPoint.getSenderAddress()` can be called either before or after the account is created.
-contract MultiOwnerLightAccountFactory {
+contract MultiOwnerLightAccountFactory is BaseLightAccountFactory {
     uint256 internal constant _MAX_OWNERS_ON_CREATION = 100;
-    MultiOwnerLightAccount public immutable accountImplementation;
+    MultiOwnerLightAccount public immutable ACCOUNT_IMPLEMENTATION;
 
     error InvalidOwners();
     error OwnersArrayEmpty();
     error OwnersLimitExceeded();
 
-    constructor(IEntryPoint entryPoint) {
-        accountImplementation = new MultiOwnerLightAccount(entryPoint);
+    constructor(address owner, IEntryPoint entryPoint) Ownable(owner) {
+        ACCOUNT_IMPLEMENTATION = new MultiOwnerLightAccount(entryPoint);
+        ENTRY_POINT = entryPoint;
     }
 
     /// @notice Create an account, and return its address. Returns the address even if the account is already deployed.
@@ -33,7 +36,7 @@ contract MultiOwnerLightAccountFactory {
         _validateOwnersArray(owners);
 
         (bool alreadyDeployed, address accountAddress) =
-            LibClone.createDeterministicERC1967(address(accountImplementation), _getCombinedSalt(owners, salt));
+            LibClone.createDeterministicERC1967(address(ACCOUNT_IMPLEMENTATION), _getCombinedSalt(owners, salt));
 
         account = MultiOwnerLightAccount(payable(accountAddress));
 
@@ -54,7 +57,7 @@ contract MultiOwnerLightAccountFactory {
         _validateOwnersArray(owners);
 
         (bool alreadyDeployed, address accountAddress) =
-            LibClone.createDeterministicERC1967(address(accountImplementation), _getCombinedSalt(owners, salt));
+            LibClone.createDeterministicERC1967(address(ACCOUNT_IMPLEMENTATION), _getCombinedSalt(owners, salt));
 
         account = MultiOwnerLightAccount(payable(accountAddress));
 
@@ -71,7 +74,7 @@ contract MultiOwnerLightAccountFactory {
         _validateOwnersArray(owners);
 
         return LibClone.predictDeterministicAddressERC1967(
-            address(accountImplementation), _getCombinedSalt(owners, salt), address(this)
+            address(ACCOUNT_IMPLEMENTATION), _getCombinedSalt(owners, salt), address(this)
         );
     }
 

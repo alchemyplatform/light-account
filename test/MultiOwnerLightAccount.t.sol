@@ -41,7 +41,7 @@ contract MultiOwnerLightAccountTest is Test {
     function setUp() public {
         eoaAddress = vm.addr(EOA_PRIVATE_KEY);
         entryPoint = new EntryPoint();
-        MultiOwnerLightAccountFactory factory = new MultiOwnerLightAccountFactory(entryPoint);
+        MultiOwnerLightAccountFactory factory = new MultiOwnerLightAccountFactory(address(this), entryPoint);
         account = factory.createAccountSingle(eoaAddress, 1);
         vm.deal(address(account), 1 << 128);
         lightSwitch = new LightSwitch();
@@ -223,14 +223,14 @@ contract MultiOwnerLightAccountTest is Test {
     }
 
     function testInitialize() public {
-        MultiOwnerLightAccountFactory factory = new MultiOwnerLightAccountFactory(entryPoint);
+        MultiOwnerLightAccountFactory factory = new MultiOwnerLightAccountFactory(address(this), entryPoint);
         vm.expectEmit(true, false, false, false);
         emit Initialized(0);
         account = factory.createAccountSingle(eoaAddress, 1);
     }
 
     function testCannotInitializeWithZeroOwner() public {
-        MultiOwnerLightAccountFactory factory = new MultiOwnerLightAccountFactory(entryPoint);
+        MultiOwnerLightAccountFactory factory = new MultiOwnerLightAccountFactory(address(this), entryPoint);
         vm.expectRevert(MultiOwnerLightAccountFactory.InvalidOwners.selector);
         account = factory.createAccountSingle(address(0), 1);
     }
@@ -662,7 +662,7 @@ contract MultiOwnerLightAccountTest is Test {
                     bytes32(uint256(uint160(0x0000000071727De22E5E9d8BAf0edAc6f37da032)))
                 )
             ),
-            0x5f04ff963bc2b9faa9a30beff91afc7cdf84f8a52f369b70060fe0f41b0504df
+            0x04ef3a9310d1a2d867807831aa0361b20aad25421de58cf37457fcf7f9567b6a
         );
     }
 
