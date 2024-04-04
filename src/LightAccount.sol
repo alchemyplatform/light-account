@@ -37,9 +37,11 @@ contract LightAccount is BaseLightAccount, CustomSlotInitializable {
     using ECDSA for bytes32;
     using MessageHashUtils for bytes32;
 
-    // keccak256(abi.encode(uint256(keccak256("light_account_v1.storage")) - 1)) & ~bytes32(uint256(0xff));
+    /// @dev The version used for namespaced storage is not linked to the release version of the contract. Storage
+    /// versions will be updated only when storage layout changes are made.
+    /// keccak256(abi.encode(uint256(keccak256("light_account_v1.storage")) - 1)) & ~bytes32(uint256(0xff));
     bytes32 internal constant _STORAGE_POSITION = 0x691ec1a18226d004c07c9f8e5c4a6ff15a7b38db267cf7e3c945aef8be512200;
-    // keccak256(abi.encode(uint256(keccak256("light_account_v1.initializable")) - 1)) & ~bytes32(uint256(0xff));
+    /// @dev keccak256(abi.encode(uint256(keccak256("light_account_v1.initializable")) - 1)) & ~bytes32(uint256(0xff));
     bytes32 internal constant _INITIALIZABLE_STORAGE_POSITION =
         0x33e4b41198cc5b8053630ed667ea7c0c4c873f7fc8d9a478b5d7259cec0a4a00;
 
@@ -72,7 +74,7 @@ contract LightAccount is BaseLightAccount, CustomSlotInitializable {
     /// implementation of LightAccount must be deployed with the new entry point address, and then `upgradeToAndCall`
     /// must be called to upgrade the implementation.
     /// @param owner_ The initial owner of the account.
-    function initialize(address owner_) public virtual initializer {
+    function initialize(address owner_) external virtual initializer {
         _initialize(owner_);
     }
 
@@ -188,6 +190,7 @@ contract LightAccount is BaseLightAccount, CustomSlotInitializable {
         returns (string memory name, string memory version)
     {
         name = "LightAccount";
+        // Set to the major version of the GitHub release at which the contract was last updated.
         version = "2";
     }
 

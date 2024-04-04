@@ -16,6 +16,7 @@ contract LightAccountFactory is BaseLightAccountFactory {
     LightAccount public immutable ACCOUNT_IMPLEMENTATION;
 
     constructor(address owner, IEntryPoint entryPoint) Ownable(owner) {
+        _verifyEntryPointAddress(address(entryPoint));
         ACCOUNT_IMPLEMENTATION = new LightAccount(entryPoint);
         ENTRY_POINT = entryPoint;
     }
@@ -27,7 +28,7 @@ contract LightAccountFactory is BaseLightAccountFactory {
     /// @param owner The owner of the account to be created.
     /// @param salt A salt, which can be changed to create multiple accounts with the same owner.
     /// @return account The address of either the newly deployed account or an existing account with this owner and salt.
-    function createAccount(address owner, uint256 salt) public returns (LightAccount account) {
+    function createAccount(address owner, uint256 salt) external returns (LightAccount account) {
         (bool alreadyDeployed, address accountAddress) =
             LibClone.createDeterministicERC1967(address(ACCOUNT_IMPLEMENTATION), _getCombinedSalt(owner, salt));
 
@@ -42,7 +43,7 @@ contract LightAccountFactory is BaseLightAccountFactory {
     /// @param owner The owner of the account to be created.
     /// @param salt A salt, which can be changed to create multiple accounts with the same owner.
     /// @return The address of the account that would be created with `createAccount`.
-    function getAddress(address owner, uint256 salt) public view returns (address) {
+    function getAddress(address owner, uint256 salt) external view returns (address) {
         return LibClone.predictDeterministicAddressERC1967(
             address(ACCOUNT_IMPLEMENTATION), _getCombinedSalt(owner, salt), address(this)
         );

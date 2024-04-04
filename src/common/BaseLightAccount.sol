@@ -2,7 +2,6 @@
 pragma solidity ^0.8.23;
 
 import {BaseAccount} from "account-abstraction/core/BaseAccount.sol";
-import {SIG_VALIDATION_FAILED} from "account-abstraction/core/Helpers.sol";
 import {SIG_VALIDATION_FAILED, SIG_VALIDATION_SUCCESS} from "account-abstraction/core/Helpers.sol";
 import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
 import {PackedUserOperation} from "account-abstraction/interfaces/PackedUserOperation.sol";
@@ -77,29 +76,29 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     }
 
     /// @notice Deposit more funds for this account in the entry point.
-    function addDeposit() public payable {
+    function addDeposit() external payable {
         entryPoint().depositTo{value: msg.value}(address(this));
     }
 
     /// @notice Withdraw value from the account's deposit.
     /// @param withdrawAddress Target to send to.
     /// @param amount Amount to withdraw.
-    function withdrawDepositTo(address payable withdrawAddress, uint256 amount) public onlyAuthorized {
+    function withdrawDepositTo(address payable withdrawAddress, uint256 amount) external onlyAuthorized {
         if (withdrawAddress == address(0)) {
             revert ZeroAddressNotAllowed();
         }
         entryPoint().withdrawTo(withdrawAddress, amount);
     }
 
+    /// @notice Check current account deposit in the entry point.
+    /// @return The current account deposit.
+    function getDeposit() external view returns (uint256) {
+        return entryPoint().balanceOf(address(this));
+    }
+
     /// @inheritdoc BaseAccount
     function entryPoint() public view virtual override returns (IEntryPoint) {
         return _ENTRY_POINT;
-    }
-
-    /// @notice Check current account deposit in the entry point.
-    /// @return The current account deposit.
-    function getDeposit() public view returns (uint256) {
-        return entryPoint().balanceOf(address(this));
     }
 
     /// @dev Must override to allow calls to protected functions.

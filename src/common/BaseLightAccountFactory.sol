@@ -4,12 +4,14 @@ pragma solidity ^0.8.23;
 import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ERC165Checker} from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
 
 abstract contract BaseLightAccountFactory is Ownable2Step {
     IEntryPoint public immutable ENTRY_POINT;
 
     error InvalidAction();
+    error InvalidEntryPoint(address entryPoint);
     error TransferFailed();
     error ZeroAddressNotAllowed();
 
@@ -62,5 +64,13 @@ abstract contract BaseLightAccountFactory is Ownable2Step {
     /// @notice Overriding to disable renounce ownership in Ownable.
     function renounceOwnership() public view override onlyOwner {
         revert InvalidAction();
+    }
+
+    /// @dev Verify that the entry point implements the IEntryPoint interface.
+    /// @param entryPointAddress The entry point address to verify.
+    function _verifyEntryPointAddress(address entryPointAddress) internal view {
+        if (!ERC165Checker.supportsInterface(address(entryPointAddress), type(IEntryPoint).interfaceId)) {
+            revert InvalidEntryPoint(address(entryPointAddress));
+        }
     }
 }

@@ -21,6 +21,7 @@ contract MultiOwnerLightAccountFactory is BaseLightAccountFactory {
     error OwnersLimitExceeded();
 
     constructor(address owner, IEntryPoint entryPoint) Ownable(owner) {
+        _verifyEntryPointAddress(address(entryPoint));
         ACCOUNT_IMPLEMENTATION = new MultiOwnerLightAccount(entryPoint);
         ENTRY_POINT = entryPoint;
     }
@@ -32,7 +33,7 @@ contract MultiOwnerLightAccountFactory is BaseLightAccountFactory {
     /// @param owners The owners of the account to be created.
     /// @param salt A salt, which can be changed to create multiple accounts with the same owners.
     /// @return account The address of either the newly deployed account or an existing account with these owners and salt.
-    function createAccount(address[] calldata owners, uint256 salt) public returns (MultiOwnerLightAccount account) {
+    function createAccount(address[] calldata owners, uint256 salt) external returns (MultiOwnerLightAccount account) {
         _validateOwnersArray(owners);
 
         (bool alreadyDeployed, address accountAddress) =
@@ -50,11 +51,13 @@ contract MultiOwnerLightAccountFactory is BaseLightAccountFactory {
     /// @param owner The owner of the account to be created.
     /// @param salt A salt, which can be changed to create multiple accounts with the same owner.
     /// @return account The address of either the newly deployed account or an existing account with this owner and salt.
-    function createAccountSingle(address owner, uint256 salt) public returns (MultiOwnerLightAccount account) {
+    function createAccountSingle(address owner, uint256 salt) external returns (MultiOwnerLightAccount account) {
+        if (owner == address(0)) {
+            revert InvalidOwners();
+        }
+
         address[] memory owners = new address[](1);
         owners[0] = owner;
-
-        _validateOwnersArray(owners);
 
         (bool alreadyDeployed, address accountAddress) =
             LibClone.createDeterministicERC1967(address(ACCOUNT_IMPLEMENTATION), _getCombinedSalt(owners, salt));
@@ -70,7 +73,7 @@ contract MultiOwnerLightAccountFactory is BaseLightAccountFactory {
     /// @param owners The owners of the account to be created.
     /// @param salt A salt, which can be changed to create multiple accounts with the same owners.
     /// @return The address of the account that would be created with `createAccount`.
-    function getAddress(address[] memory owners, uint256 salt) public view returns (address) {
+    function getAddress(address[] memory owners, uint256 salt) external view returns (address) {
         _validateOwnersArray(owners);
 
         return LibClone.predictDeterministicAddressERC1967(

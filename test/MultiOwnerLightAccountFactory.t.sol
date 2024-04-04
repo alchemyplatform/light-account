@@ -4,6 +4,7 @@ pragma solidity ^0.8.23;
 import "forge-std/Test.sol";
 
 import {EntryPoint} from "account-abstraction/core/EntryPoint.sol";
+import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
 
 import {BaseLightAccountFactory} from "../src/common/BaseLightAccountFactory.sol";
 import {MultiOwnerLightAccount} from "../src/MultiOwnerLightAccount.sol";
@@ -167,6 +168,14 @@ contract MultiOwnerLightAccountFactoryTest is Test {
     function testCannotRenounceOwnership() public {
         vm.expectRevert(BaseLightAccountFactory.InvalidAction.selector);
         factory.renounceOwnership();
+    }
+
+    function testRevertWithInvalidEntryPoint() public {
+        IEntryPoint invalidEntryPoint = IEntryPoint(address(123));
+        vm.expectRevert(
+            abi.encodeWithSelector(BaseLightAccountFactory.InvalidEntryPoint.selector, (address(invalidEntryPoint)))
+        );
+        new MultiOwnerLightAccountFactory(address(this), invalidEntryPoint);
     }
 
     /// @dev Receive funds from withdraw.

@@ -23,9 +23,11 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
     using CastLib for address;
     using CastLib for SetValue[];
 
-    // keccak256(abi.encode(uint256(keccak256("multi_owner_light_account_v1.storage")) - 1)) & ~bytes32(uint256(0xff));
+    /// @dev The version used for namespaced storage is not linked to the release version of the contract. Storage
+    /// versions will be updated only when storage layout changes are made.
+    /// keccak256(abi.encode(uint256(keccak256("multi_owner_light_account_v1.storage")) - 1)) & ~bytes32(uint256(0xff));
     bytes32 internal constant _STORAGE_POSITION = 0x0eb5184329babcda7203727c83eff940fb292fc735f61720a6182b755bf7f900;
-    // keccak256(abi.encode(uint256(keccak256("multi_owner_light_account_v1.initializable")) - 1)) & ~bytes32(uint256(0xff));
+    /// @dev keccak256(abi.encode(uint256(keccak256("multi_owner_light_account_v1.initializable")) - 1)) & ~bytes32(uint256(0xff));
     bytes32 internal constant _INITIALIZABLE_STORAGE_POSITION =
         0xaa296a366a62f6551d3ddfceae892d1791068a359a0d3461aab99dfc6c5fd700;
 
@@ -109,10 +111,7 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
         uint256 length = ownersToAdd.length;
         for (uint256 i = 0; i < length; ++i) {
             address ownerToAdd = ownersToAdd[i];
-            if (
-                ownerToAdd == address(0) || ownerToAdd == address(this)
-                    || !_storage.owners.tryAdd(ownerToAdd.toSetValue())
-            ) {
+            if (ownerToAdd == address(this) || !_storage.owners.tryAdd(ownerToAdd.toSetValue())) {
                 revert InvalidOwner(ownerToAdd);
             }
         }
@@ -246,7 +245,8 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
         returns (string memory name, string memory version)
     {
         name = "MultiOwnerLightAccount";
-        version = "1";
+        // Set to the major version of the GitHub release at which the contract was last updated.
+        version = "2";
     }
 
     function _isFromOwner() internal view virtual override returns (bool) {
