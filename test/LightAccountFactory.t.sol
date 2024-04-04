@@ -59,11 +59,23 @@ contract LightAccountFactoryTest is Test {
         assertEq(address(this).balance, 100 ether);
     }
 
+    function testWithdrawStakeToZeroAddress() public {
+        testUnlockStake();
+        vm.expectRevert(BaseLightAccountFactory.ZeroAddressNotAllowed.selector);
+        factory.withdrawStake(payable(address(0)));
+    }
+
     function testWithdraw() public {
         factory.addStake{value: 10 ether}(10 hours, 1 ether);
         assertEq(address(factory).balance, 9 ether);
         factory.withdraw(payable(address(this)), address(0), 0); // amount = balance if native currency
         assertEq(address(factory).balance, 0);
+    }
+
+    function testWithdrawToZeroAddress() public {
+        factory.addStake{value: 10 ether}(10 hours, 1 ether);
+        vm.expectRevert(BaseLightAccountFactory.ZeroAddressNotAllowed.selector);
+        factory.withdraw(payable(address(0)), address(0), 0);
     }
 
     function test2StepOwnershipTransfer() public {

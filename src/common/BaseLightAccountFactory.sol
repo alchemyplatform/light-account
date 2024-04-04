@@ -11,6 +11,7 @@ abstract contract BaseLightAccountFactory is Ownable2Step {
 
     error InvalidAction();
     error TransferFailed();
+    error ZeroAddressNotAllowed();
 
     /// @notice Allow contract to receive native currency.
     receive() external payable {}
@@ -33,6 +34,9 @@ abstract contract BaseLightAccountFactory is Ownable2Step {
     /// @dev Only callable by owner.
     /// @param to Address to send native currency to.
     function withdrawStake(address payable to) external onlyOwner {
+        if (to == address(0)) {
+            revert ZeroAddressNotAllowed();
+        }
         ENTRY_POINT.withdrawStake(to);
     }
 
@@ -42,6 +46,9 @@ abstract contract BaseLightAccountFactory is Ownable2Step {
     /// @param token Address of the token to withdraw, 0 address for native currency.
     /// @param amount Amount of the token to withdraw in case of rebasing tokens.
     function withdraw(address payable to, address token, uint256 amount) external onlyOwner {
+        if (to == address(0)) {
+            revert ZeroAddressNotAllowed();
+        }
         if (token == address(0)) {
             (bool success,) = to.call{value: address(this).balance}("");
             if (!success) {

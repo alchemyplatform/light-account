@@ -209,6 +209,13 @@ contract MultiOwnerLightAccountTest is Test {
         account.execute(address(lightSwitch), 0, abi.encodeCall(LightSwitch.turnOn, ()));
     }
 
+    function testWithdrawDepositToZeroAddress() public {
+        account.addDeposit{value: 10}();
+        vm.prank(eoaAddress);
+        vm.expectRevert(abi.encodeWithSelector(BaseLightAccount.ZeroAddressNotAllowed.selector));
+        account.withdrawDepositTo(payable(address(0)), 5);
+    }
+
     function testExecuteRevertingCallShouldRevertWithSameData() public {
         Reverter reverter = new Reverter();
         vm.prank(eoaAddress);
@@ -658,7 +665,7 @@ contract MultiOwnerLightAccountTest is Test {
                     abi.encodeCall(
                         account.upgradeToAndCall,
                         (address(newImplementation), abi.encodeCall(SimpleAccount.initialize, (address(this))))
-                        )
+                    )
                 )
             ),
             EOA_PRIVATE_KEY
@@ -708,7 +715,7 @@ contract MultiOwnerLightAccountTest is Test {
                     bytes32(uint256(uint160(0x0000000071727De22E5E9d8BAf0edAc6f37da032)))
                 )
             ),
-            0xff5809a60394ff57666c1f7b34605ab8a7fe83c99b833b484ed65f4fdd479c4e
+            0xbb599752b3425b84e8ae3cb828517ab8257400426f76cdb9d522785032b80568
         );
     }
 

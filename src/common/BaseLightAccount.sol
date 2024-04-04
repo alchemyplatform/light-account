@@ -21,14 +21,10 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
         CONTRACT_WITH_ADDR
     }
 
-    /// @dev The length of the array does not match the expected length.
     error ArrayLengthMismatch();
-
-    /// @dev The signature type provided is not valid.
     error InvalidSignatureType();
-
-    /// @dev The caller is not authorized.
     error NotAuthorized(address caller);
+    error ZeroAddressNotAllowed();
 
     modifier onlyAuthorized() {
         _onlyAuthorized();
@@ -89,6 +85,9 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     /// @param withdrawAddress Target to send to.
     /// @param amount Amount to withdraw.
     function withdrawDepositTo(address payable withdrawAddress, uint256 amount) public onlyAuthorized {
+        if (withdrawAddress == address(0)) {
+            revert ZeroAddressNotAllowed();
+        }
         entryPoint().withdrawTo(withdrawAddress, amount);
     }
 

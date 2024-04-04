@@ -276,6 +276,13 @@ contract LightAccountTest is Test {
         account.withdrawDepositTo(BENEFICIARY, 5);
     }
 
+    function testWithdrawDepositToZeroAddress() public {
+        account.addDeposit{value: 10}();
+        vm.prank(eoaAddress);
+        vm.expectRevert(abi.encodeWithSelector(BaseLightAccount.ZeroAddressNotAllowed.selector));
+        account.withdrawDepositTo(payable(address(0)), 5);
+    }
+
     function testOwnerCanTransferOwnership() public {
         address newOwner = address(0x100);
         vm.prank(eoaAddress);
@@ -500,7 +507,7 @@ contract LightAccountTest is Test {
                     abi.encodeCall(
                         account.upgradeToAndCall,
                         (address(newImplementation), abi.encodeCall(SimpleAccount.initialize, (address(this))))
-                        )
+                    )
                 )
             ),
             EOA_PRIVATE_KEY
@@ -549,7 +556,7 @@ contract LightAccountTest is Test {
                     bytes32(uint256(uint160(0x0000000071727De22E5E9d8BAf0edAc6f37da032)))
                 )
             ),
-            0x9861f47fa11c7176759734bb81b2c2c764ce9219f757a6aa77774550dfe37f33
+            0x8199f8205e3258d7c2f19a108ae7d87beba2ee39a352779987b9bb16c13d0763
         );
     }
 
