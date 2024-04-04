@@ -5,11 +5,11 @@ import "forge-std/Script.sol";
 
 import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
 
-import {LightAccountFactory} from "../src/LightAccountFactory.sol";
+import {MultiOwnerLightAccountFactory} from "../src/MultiOwnerLightAccountFactory.sol";
 
-// @notice Deploys LightAccountFactory
-// @dev To run: `forge script script/Deploy_LightAccountFactory.s.sol:Deploy_LightAccountFactory --broadcast --rpc-url ${RPC_URL} --verify -vvvv`
-contract Deploy_LightAccountFactory is Script {
+// @notice Deploys MultiOwnerLightAccountFactory
+// @dev To run: `forge script script/Deploy_MultiOwnerLightAccountFactory.s.sol:Deploy_MultiOwnerLightAccountFactory --broadcast --rpc-url ${RPC_URL} --verify -vvvv`
+contract Deploy_MultiOwnerLightAccountFactory is Script {
     // Load entrypoint from env
     address public entryPointAddr = vm.envAddress("ENTRYPOINT");
     IEntryPoint public entryPoint = IEntryPoint(payable(entryPointAddr));
@@ -25,9 +25,9 @@ contract Deploy_LightAccountFactory is Script {
 
         // Init code hash check
         bytes32 initCodeHash =
-            keccak256(abi.encodePacked(type(LightAccountFactory).creationCode, abi.encode(owner, entryPoint)));
+            keccak256(abi.encodePacked(type(MultiOwnerLightAccountFactory).creationCode, abi.encode(owner, entryPoint)));
 
-        if (initCodeHash != 0xfad339962af095db6ac3163c8504f102c28ae099db994101fbbca18ad0e3005c) {
+        if (initCodeHash != 0x69e0f4a2942425638860e9982bd32f08941a082681e53208de970099f18252cc) {
             revert InitCodeHashMismatch(initCodeHash);
         }
 
@@ -41,19 +41,19 @@ contract Deploy_LightAccountFactory is Script {
         console.log("******** Deploying.... *********");
         console.log("********************************");
 
-        LightAccountFactory factory = new LightAccountFactory{
-            salt: 0x00000000000000000000000000000000000000005f1ffd9d31306e056bcc959b
+        MultiOwnerLightAccountFactory factory = new MultiOwnerLightAccountFactory{
+            salt: 0x0000000000000000000000000000000000000000bb3ab048b3f4ef2620ea0163
         }(owner, entryPoint);
 
         // Deployed address check
-        if (address(factory) != 0x0000000000400CdFef5E2714E63d8040b700BC24) {
+        if (address(factory) != 0x000000000019d2Ee9F2729A65AfE20bb0020AefC) {
             revert DeployedAddressMismatch(address(factory));
         }
 
         _addStakeForFactory(address(factory));
 
-        console.log("LightAccountFactory:", address(factory));
-        console.log("LightAccount:", address(factory.ACCOUNT_IMPLEMENTATION()));
+        console.log("MultiOwnerLightAccountFactory:", address(factory));
+        console.log("MultiOwnerLightAccount:", address(factory.ACCOUNT_IMPLEMENTATION()));
         console.log();
 
         vm.stopBroadcast();
@@ -64,7 +64,7 @@ contract Deploy_LightAccountFactory is Script {
         uint256 requiredStakeAmount = vm.envUint("REQUIRED_STAKE_AMOUNT");
         uint256 currentStakedAmount = entryPoint.getDepositInfo(factoryAddr).stake;
         uint256 stakeAmount = requiredStakeAmount - currentStakedAmount;
-        LightAccountFactory(payable(factoryAddr)).addStake{value: stakeAmount}(unstakeDelaySec, stakeAmount);
+        MultiOwnerLightAccountFactory(payable(factoryAddr)).addStake{value: stakeAmount}(unstakeDelaySec, stakeAmount);
         console.log("******** Add Stake Verify *********");
         console.log("Staked factory: ", factoryAddr);
         console.log("Stake amount: ", entryPoint.getDepositInfo(factoryAddr).stake);

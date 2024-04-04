@@ -26,6 +26,8 @@ contract MultiOwnerLightAccountTest is Test {
     uint256 public constant EOA_PRIVATE_KEY = 1;
     address payable public constant BENEFICIARY = payable(address(0xbe9ef1c1a2ee));
     bytes32 internal constant _MESSAGE_TYPEHASH = keccak256("LightAccountMessage(bytes message)");
+    address public factoryOwner = 0xDdF32240B4ca3184De7EC8f0D5Aba27dEc8B7A5C;
+    address public entryPointAddr = 0x0000000071727De22E5E9d8BAf0edAc6f37da032;
     address public eoaAddress;
     MultiOwnerLightAccount public account;
     MultiOwnerLightAccount public contractOwnedAccount;
@@ -39,8 +41,9 @@ contract MultiOwnerLightAccountTest is Test {
 
     function setUp() public {
         eoaAddress = vm.addr(EOA_PRIVATE_KEY);
-        entryPoint = new EntryPoint();
-        MultiOwnerLightAccountFactory factory = new MultiOwnerLightAccountFactory(address(this), entryPoint);
+        vm.etch(entryPointAddr, address(new EntryPoint()).code);
+        entryPoint = EntryPoint(payable(entryPointAddr));
+        MultiOwnerLightAccountFactory factory = new MultiOwnerLightAccountFactory(factoryOwner, entryPoint);
         account = factory.createAccountSingle(eoaAddress, 1);
         vm.deal(address(account), 1 << 128);
         lightSwitch = new LightSwitch();
@@ -625,12 +628,9 @@ contract MultiOwnerLightAccountTest is Test {
     function testValidateInitCodeHash() external {
         assertEq(
             keccak256(
-                abi.encodePacked(
-                    type(MultiOwnerLightAccountFactory).creationCode,
-                    bytes32(uint256(uint160(0x0000000071727De22E5E9d8BAf0edAc6f37da032)))
-                )
+                abi.encodePacked(type(MultiOwnerLightAccountFactory).creationCode, abi.encode(factoryOwner, entryPoint))
             ),
-            0x80c58908b2149ff4b21996454a1ad577de59738d9f23637fe3f01506a8836767
+            0x69e0f4a2942425638860e9982bd32f08941a082681e53208de970099f18252cc
         );
     }
 
