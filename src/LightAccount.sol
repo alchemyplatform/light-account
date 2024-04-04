@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.23;
 
-/* solhint-disable avoid-low-level-calls */
-/* solhint-disable no-inline-assembly */
-/* solhint-disable reason-string */
-
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
@@ -124,6 +120,9 @@ contract LightAccount is BaseLightAccount, CustomSlotInitializable {
         override
         returns (uint256 validationData)
     {
+        if (userOp.signature.length < 1) {
+            revert InvalidSignatureType();
+        }
         uint8 signatureType = uint8(userOp.signature[0]);
         if (signatureType == uint8(SignatureType.EOA)) {
             // EOA signature
@@ -135,18 +134,17 @@ contract LightAccount is BaseLightAccount, CustomSlotInitializable {
             bytes memory signature = userOp.signature[1:];
             return _successToValidationData(_isValidContractOwnerSignatureNow(userOpHash, signature));
         }
-
         revert InvalidSignatureType();
     }
 
     /// @notice Check if the signature is a valid by the EOA owner for the given digest.
-    /// @dev Only supports 65-byte signatures, and uses the digest directly.
+    /// @dev Only supports 65-byte signatures, and uses the digest directly. Reverts if the signature is malformed.
     /// @param digest The digest to be checked.
     /// @param signature The signature to be checked.
     /// @return True if the signature is valid and by the owner, false otherwise.
     function _isValidEOAOwnerSignature(bytes32 digest, bytes memory signature) internal view returns (bool) {
-        (address recovered, ECDSA.RecoverError error,) = digest.tryRecover(signature);
-        return error == ECDSA.RecoverError.NoError && recovered == owner();
+        address recovered = digest.recover(signature);
+        return recovered == owner();
     }
 
     /// @notice Check if the signature is a valid ERC-1271 signature by a contract owner for the given digest.
@@ -158,7 +156,7 @@ contract LightAccount is BaseLightAccount, CustomSlotInitializable {
     }
 
     /// @dev The signature is valid if it is signed by the owner's private key (if the owner is an EOA) or if it is a
-    /// valid ERC-1271 signature from the owner (if the owner is a contract).
+    /// valid ERC-1271 signature from the owner (if the owner is a contract). Reverts if the signature is malformed.
     function _isValidSignature(bytes32 derivedHash, bytes calldata trimmedSignature)
         internal
         view
@@ -167,7 +165,7 @@ contract LightAccount is BaseLightAccount, CustomSlotInitializable {
         returns (bool)
     {
         if (trimmedSignature.length < 1) {
-            return false;
+            revert InvalidSignatureType();
         }
         uint8 signatureType = uint8(trimmedSignature[0]);
         if (signatureType == uint8(SignatureType.EOA)) {
@@ -179,7 +177,7 @@ contract LightAccount is BaseLightAccount, CustomSlotInitializable {
             bytes memory signature = trimmedSignature[1:];
             return _isValidContractOwnerSignatureNow(derivedHash, signature);
         }
-        return false;
+        revert InvalidSignatureType();
     }
 
     function _domainNameAndVersion()

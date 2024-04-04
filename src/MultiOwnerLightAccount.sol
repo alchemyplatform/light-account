@@ -137,6 +137,9 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
         override
         returns (uint256 validationData)
     {
+        if (userOp.signature.length < 1) {
+            revert InvalidSignatureType();
+        }
         uint8 signatureType = uint8(userOp.signature[0]);
         if (signatureType == uint8(SignatureType.EOA)) {
             // EOA signature
@@ -154,18 +157,17 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
             return
                 _successToValidationData(_isValidContractOwnerSignatureNowSingle(contractOwner, userOpHash, signature));
         }
-
         revert InvalidSignatureType();
     }
 
     /// @notice Check if the signature is a valid by an EOA owner for the given digest.
-    /// @dev Only supports 65-byte signatures, and uses the digest directly.
+    /// @dev Only supports 65-byte signatures, and uses the digest directly. Reverts if the signature is malformed.
     /// @param digest The digest to be checked.
     /// @param signature The signature to be checked.
     /// @return True if the signature is valid and by an owner, false otherwise.
     function _isValidEOAOwnerSignature(bytes32 digest, bytes memory signature) internal view returns (bool) {
-        (address recovered, ECDSA.RecoverError error,) = digest.tryRecover(signature);
-        return error == ECDSA.RecoverError.NoError && _getStorage().owners.contains(recovered.toSetValue());
+        address recovered = digest.recover(signature);
+        return _getStorage().owners.contains(recovered.toSetValue());
     }
 
     /// @notice Check if the given verifier is a contract owner, and if the signature is a valid ERC-1271 signature by
@@ -207,7 +209,7 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
     }
 
     /// @dev The signature is valid if it is signed by the owner's private key (if the owner is an EOA) or if it is a
-    /// valid ERC-1271 signature from the owner (if the owner is a contract).
+    /// valid ERC-1271 signature from the owner (if the owner is a contract). Reverts if the signature is malformed.
     function _isValidSignature(bytes32 derivedHash, bytes calldata trimmedSignature)
         internal
         view
@@ -216,7 +218,7 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
         returns (bool)
     {
         if (trimmedSignature.length < 1) {
-            return false;
+            revert InvalidSignatureType();
         }
         uint8 signatureType = uint8(trimmedSignature[0]);
         if (signatureType == uint8(SignatureType.EOA)) {
@@ -233,7 +235,7 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
             bytes memory signature = trimmedSignature[21:];
             return _isValidContractOwnerSignatureNowSingle(contractOwner, derivedHash, signature);
         }
-        return false;
+        revert InvalidSignatureType();
     }
 
     function _domainNameAndVersion()

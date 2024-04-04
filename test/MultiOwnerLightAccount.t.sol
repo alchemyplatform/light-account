@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.23;
 
 import "forge-std/Test.sol";
@@ -158,6 +158,47 @@ contract MultiOwnerLightAccountTest is Test {
                 0,
                 "AA23 reverted",
                 abi.encodePacked(BaseLightAccount.InvalidSignatureType.selector)
+            )
+        );
+        entryPoint.handleOps(ops, BENEFICIARY);
+    }
+
+    function testRevertsUserOpsWithMalformedSignature() public {
+        PackedUserOperation memory op = _getSignedOp(
+            abi.encodeCall(BaseLightAccount.execute, (address(lightSwitch), 0, abi.encodeCall(LightSwitch.turnOn, ()))),
+            1234
+        );
+        op.signature = abi.encodePacked(BaseLightAccount.SignatureType.EOA, hex"aaaa");
+        PackedUserOperation[] memory ops = new PackedUserOperation[](1);
+        ops[0] = op;
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IEntryPoint.FailedOpWithRevert.selector,
+                0,
+                "AA23 reverted",
+                abi.encodeWithSelector(ECDSA.ECDSAInvalidSignatureLength.selector, (op.signature.length - 1))
+            )
+        );
+        entryPoint.handleOps(ops, BENEFICIARY);
+
+        op.signature = abi.encodePacked(uint8(3));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IEntryPoint.FailedOpWithRevert.selector,
+                0,
+                "AA23 reverted",
+                abi.encodeWithSelector(BaseLightAccount.InvalidSignatureType.selector)
+            )
+        );
+        entryPoint.handleOps(ops, BENEFICIARY);
+
+        op.signature = hex"";
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IEntryPoint.FailedOpWithRevert.selector,
+                0,
+                "AA23 reverted",
+                abi.encodeWithSelector(BaseLightAccount.InvalidSignatureType.selector)
             )
         );
         entryPoint.handleOps(ops, BENEFICIARY);
@@ -469,12 +510,14 @@ contract MultiOwnerLightAccountTest is Test {
             _domainSeparatorA(),
             child
         );
-        assertEq(account.isValidSignature(_toChildHash(child), signature), bytes4(0xffffffff));
 
-        assertEq(
-            account.isValidSignature(_toChildHash(child), abi.encodePacked(BaseLightAccount.SignatureType.EOA)),
-            bytes4(0xffffffff)
-        );
+        // ERC1271.isValidSignature only truncates 32 bytes (since the wrong domain separator was used) before passing it on to _isValidSignature
+        // _isValidSignature truncates the SignatureType byte before ecrecover
+        vm.expectRevert(abi.encodeWithSelector(ECDSA.ECDSAInvalidSignatureLength.selector, (signature.length - 32 - 1)));
+        account.isValidSignature(_toChildHash(child), signature);
+
+        vm.expectRevert(abi.encodeWithSelector(BaseLightAccount.InvalidSignatureType.selector));
+        account.isValidSignature(_toChildHash(child), abi.encodePacked(BaseLightAccount.SignatureType.EOA));
     }
 
     function testIsValidSignatureRejectsInvalidContractOwner() public {
@@ -490,14 +533,15 @@ contract MultiOwnerLightAccountTest is Test {
         assertEq(account.isValidSignature(_toChildHash(child), signature), bytes4(0xffffffff));
     }
 
-    function testFuzz_IsValidSignatureRejectsInvalidSignatureType(uint8 signatureType) public {
+    function testFuzz_isValidSignatureRejectsInvalidSignatureType(uint8 signatureType) public {
         signatureType = uint8(bound(signatureType, 3, type(uint8).max));
 
         bytes32 child = keccak256(abi.encode(_CHILD_TYPEHASH, "hello world"));
         bytes memory signature = abi.encodePacked(
             signatureType, _sign(EOA_PRIVATE_KEY, _toERC1271Hash(child)), _PARENT_TYPEHASH, _domainSeparatorB(), child
         );
-        assertEq(account.isValidSignature(_toChildHash(child), signature), bytes4(0xffffffff));
+        vm.expectRevert(abi.encodeWithSelector(BaseLightAccount.InvalidSignatureType.selector));
+        account.isValidSignature(_toChildHash(child), signature);
     }
 
     function testIsValidSignaturePersonalSign() public {
@@ -555,12 +599,14 @@ contract MultiOwnerLightAccountTest is Test {
             _domainSeparatorB(),
             childHash
         );
-        assertEq(account.isValidSignature(childHash, signature), bytes4(0xffffffff));
 
-        assertEq(
-            account.isValidSignature(childHash, abi.encodePacked(BaseLightAccount.SignatureType.EOA)),
-            bytes4(0xffffffff)
-        );
+        // ERC1271.isValidSignature only truncates 32 bytes for personal_sign before passing it on to _isValidSignature
+        // _isValidSignature truncates the SignatureType byte before ecrecover
+        vm.expectRevert(abi.encodeWithSelector(ECDSA.ECDSAInvalidSignatureLength.selector, (signature.length - 32 - 1)));
+        account.isValidSignature(childHash, signature);
+
+        vm.expectRevert(abi.encodeWithSelector(BaseLightAccount.InvalidSignatureType.selector));
+        account.isValidSignature(childHash, abi.encodePacked(BaseLightAccount.SignatureType.EOA));
     }
 
     function testOwnerCanUpgrade() public {
@@ -662,7 +708,7 @@ contract MultiOwnerLightAccountTest is Test {
                     bytes32(uint256(uint160(0x0000000071727De22E5E9d8BAf0edAc6f37da032)))
                 )
             ),
-            0x04ef3a9310d1a2d867807831aa0361b20aad25421de58cf37457fcf7f9567b6a
+            0xff5809a60394ff57666c1f7b34605ab8a7fe83c99b833b484ed65f4fdd479c4e
         );
     }
 

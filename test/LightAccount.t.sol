@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.23;
 
 import "forge-std/Test.sol";
@@ -6,7 +6,6 @@ import "forge-std/Test.sol";
 import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
-
 import {EntryPoint} from "account-abstraction/core/EntryPoint.sol";
 import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
 import {PackedUserOperation} from "account-abstraction/interfaces/PackedUserOperation.sol";
@@ -108,6 +107,47 @@ contract LightAccountTest is Test {
                 0,
                 "AA23 reverted",
                 abi.encodePacked(BaseLightAccount.InvalidSignatureType.selector)
+            )
+        );
+        entryPoint.handleOps(ops, BENEFICIARY);
+    }
+
+    function testRevertsUserOpsWithMalformedSignature() public {
+        PackedUserOperation memory op = _getSignedOp(
+            abi.encodeCall(BaseLightAccount.execute, (address(lightSwitch), 0, abi.encodeCall(LightSwitch.turnOn, ()))),
+            1234
+        );
+        op.signature = abi.encodePacked(BaseLightAccount.SignatureType.EOA, hex"aaaa");
+        PackedUserOperation[] memory ops = new PackedUserOperation[](1);
+        ops[0] = op;
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IEntryPoint.FailedOpWithRevert.selector,
+                0,
+                "AA23 reverted",
+                abi.encodeWithSelector(ECDSA.ECDSAInvalidSignatureLength.selector, (op.signature.length - 1))
+            )
+        );
+        entryPoint.handleOps(ops, BENEFICIARY);
+
+        op.signature = abi.encodePacked(uint8(3));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IEntryPoint.FailedOpWithRevert.selector,
+                0,
+                "AA23 reverted",
+                abi.encodeWithSelector(BaseLightAccount.InvalidSignatureType.selector)
+            )
+        );
+        entryPoint.handleOps(ops, BENEFICIARY);
+
+        op.signature = hex"";
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IEntryPoint.FailedOpWithRevert.selector,
+                0,
+                "AA23 reverted",
+                abi.encodeWithSelector(BaseLightAccount.InvalidSignatureType.selector)
             )
         );
         entryPoint.handleOps(ops, BENEFICIARY);
@@ -334,16 +374,30 @@ contract LightAccountTest is Test {
 
     function testIsValidSignatureRejectsInvalid() public {
         bytes32 child = keccak256(abi.encode(_CHILD_TYPEHASH, "hello world"));
-        bytes memory signature =
-            abi.encodePacked(_sign(123, _toERC1271Hash(child)), _PARENT_TYPEHASH, _domainSeparatorB(), child);
-        assertEq(account.isValidSignature(_toChildHash(child), signature), bytes4(0xffffffff));
-
-        signature = abi.encodePacked(
-            _sign(EOA_PRIVATE_KEY, _toERC1271Hash(child)), _PARENT_TYPEHASH, _domainSeparatorA(), child
+        bytes memory signature = abi.encodePacked(
+            BaseLightAccount.SignatureType.EOA,
+            _sign(123, _toERC1271Hash(child)),
+            _PARENT_TYPEHASH,
+            _domainSeparatorB(),
+            child
         );
         assertEq(account.isValidSignature(_toChildHash(child), signature), bytes4(0xffffffff));
 
-        assertEq(account.isValidSignature(_toChildHash(child), ""), bytes4(0xffffffff));
+        signature = abi.encodePacked(
+            BaseLightAccount.SignatureType.EOA,
+            _sign(EOA_PRIVATE_KEY, _toERC1271Hash(child)),
+            _PARENT_TYPEHASH,
+            _domainSeparatorA(),
+            child
+        );
+
+        // ERC1271.isValidSignature only truncates 32 bytes (since the wrong domain separator was used) before passing it on to _isValidSignature
+        // _isValidSignature truncates the SignatureType byte before ecrecover
+        vm.expectRevert(abi.encodeWithSelector(ECDSA.ECDSAInvalidSignatureLength.selector, (signature.length - 32 - 1)));
+        account.isValidSignature(_toChildHash(child), signature);
+
+        vm.expectRevert(abi.encodeWithSelector(BaseLightAccount.InvalidSignatureType.selector));
+        account.isValidSignature(_toChildHash(child), abi.encodePacked(BaseLightAccount.SignatureType.EOA));
     }
 
     function testIsValidSignaturePersonalSign() public {
@@ -375,18 +429,26 @@ contract LightAccountTest is Test {
         string memory message = "hello world";
         bytes32 childHash =
             keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n", bytes(message).length, message));
-        bytes memory signature = abi.encodePacked(_sign(123, _toERC1271HashPersonalSign(childHash)), _PARENT_TYPEHASH);
+        bytes memory signature = abi.encodePacked(
+            BaseLightAccount.SignatureType.EOA, _sign(123, _toERC1271HashPersonalSign(childHash)), _PARENT_TYPEHASH
+        );
         assertEq(account.isValidSignature(childHash, signature), bytes4(0xffffffff));
 
         signature = abi.encodePacked(
+            BaseLightAccount.SignatureType.EOA,
             _sign(EOA_PRIVATE_KEY, _toERC1271HashPersonalSign(childHash)),
             _PARENT_TYPEHASH,
             _domainSeparatorB(),
             childHash
         );
-        assertEq(account.isValidSignature(childHash, signature), bytes4(0xffffffff));
 
-        assertEq(account.isValidSignature(childHash, ""), bytes4(0xffffffff));
+        // ERC1271.isValidSignature only truncates 32 bytes for personal_sign before passing it on to _isValidSignature
+        // _isValidSignature truncates the SignatureType byte before ecrecover
+        vm.expectRevert(abi.encodeWithSelector(ECDSA.ECDSAInvalidSignatureLength.selector, (signature.length - 32 - 1)));
+        account.isValidSignature(childHash, signature);
+
+        vm.expectRevert(abi.encodeWithSelector(BaseLightAccount.InvalidSignatureType.selector));
+        account.isValidSignature(childHash, "");
     }
 
     function testOwnerCanUpgrade() public {
@@ -487,7 +549,7 @@ contract LightAccountTest is Test {
                     bytes32(uint256(uint160(0x0000000071727De22E5E9d8BAf0edAc6f37da032)))
                 )
             ),
-            0x10f16a2b2ab8a4a6c680a35494382da995eea00c40bed1fc5391774da7de7fc9
+            0x9861f47fa11c7176759734bb81b2c2c764ce9219f757a6aa77774550dfe37f33
         );
     }
 
