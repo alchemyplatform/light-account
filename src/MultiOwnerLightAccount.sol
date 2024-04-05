@@ -130,6 +130,7 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
     /// @dev Implement template method of BaseAccount.
     /// Uses a modified version of `SignatureChecker.isValidSignatureNow` in which the digest is wrapped with an
     /// "Ethereum Signed Message" envelope for the EOA-owner case but not in the ERC-1271 contract-owner case.
+    /// The SignatureType.CONTRACT case is excluded here to prevent potential gas griefing attacks.
     function _validateSignature(PackedUserOperation calldata userOp, bytes32 userOpHash)
         internal
         virtual
@@ -145,10 +146,6 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
             bytes32 signedHash = userOpHash.toEthSignedMessageHash();
             bytes memory signature = userOp.signature[1:];
             return _successToValidationData(_isValidEOAOwnerSignature(signedHash, signature));
-        } else if (signatureType == uint8(SignatureType.CONTRACT)) {
-            // Contract signature without address
-            bytes memory signature = userOp.signature[1:];
-            return _successToValidationData(_isValidContractOwnerSignatureNowLoop(userOpHash, signature));
         } else if (signatureType == uint8(SignatureType.CONTRACT_WITH_ADDR)) {
             // Contract signature with address
             address contractOwner = address(bytes20(userOp.signature[1:21]));

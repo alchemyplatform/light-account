@@ -72,19 +72,6 @@ contract MultiOwnerLightAccountTest is Test {
         assertTrue(lightSwitch.on());
     }
 
-    function testExecuteCanBeCalledByEntryPointWithContractOwnerUnspecified() public {
-        _useContractOwner();
-        PackedUserOperation memory op = _getUnsignedOp(
-            abi.encodeCall(BaseLightAccount.execute, (address(lightSwitch), 0, abi.encodeCall(LightSwitch.turnOn, ())))
-        );
-        op.signature =
-            abi.encodePacked(BaseLightAccount.SignatureType.CONTRACT, contractOwner.sign(entryPoint.getUserOpHash(op)));
-        PackedUserOperation[] memory ops = new PackedUserOperation[](1);
-        ops[0] = op;
-        entryPoint.handleOps(ops, BENEFICIARY);
-        assertTrue(lightSwitch.on());
-    }
-
     function testExecuteCanBeCalledByEntryPointWithContractOwnerSpecified() public {
         _useContractOwner();
         PackedUserOperation memory op = _getUnsignedOp(
@@ -109,6 +96,27 @@ contract MultiOwnerLightAccountTest is Test {
         PackedUserOperation[] memory ops = new PackedUserOperation[](1);
         ops[0] = op;
         vm.expectRevert(abi.encodeWithSelector(IEntryPoint.FailedOp.selector, 0, "AA24 signature error"));
+        entryPoint.handleOps(ops, BENEFICIARY);
+    }
+
+    function testRejectsUserOpWithContractOwnerUnspecified() public {
+        _useContractOwner();
+        PackedUserOperation memory op = _getUnsignedOp(
+            abi.encodeCall(BaseLightAccount.execute, (address(lightSwitch), 0, abi.encodeCall(LightSwitch.turnOn, ())))
+        );
+        op.signature =
+            abi.encodePacked(BaseLightAccount.SignatureType.CONTRACT, contractOwner.sign(entryPoint.getUserOpHash(op)));
+        PackedUserOperation[] memory ops = new PackedUserOperation[](1);
+        ops[0] = op;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IEntryPoint.FailedOpWithRevert.selector,
+                0,
+                "AA23 reverted",
+                abi.encodePacked(BaseLightAccount.InvalidSignatureType.selector)
+            )
+        );
         entryPoint.handleOps(ops, BENEFICIARY);
     }
 
@@ -715,7 +723,7 @@ contract MultiOwnerLightAccountTest is Test {
                     bytes32(uint256(uint160(0x0000000071727De22E5E9d8BAf0edAc6f37da032)))
                 )
             ),
-            0x38d4efa1969cecb0d91391970b4a410bfc1f26e6a41a29bebfda173a9a739ea0
+            0x2fff6cdec81f22cf680a4c06509a0e189084f530d5fdbfa5325940de2d89cbff
         );
     }
 
