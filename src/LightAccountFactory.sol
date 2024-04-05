@@ -50,6 +50,7 @@ contract LightAccountFactory is BaseLightAccountFactory {
     }
 
     /// @notice Compute the hash of the owner and salt in scratch space memory.
+    /// @dev The caller is responsible for cleaning the upper bits of the owner address parameter.
     /// @param owner The owner of the account to be created.
     /// @param salt A salt, which can be changed to create multiple accounts with the same owner.
     /// @return combinedSalt The hash of the owner and salt.
