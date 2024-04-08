@@ -409,8 +409,7 @@ contract LightAccountTest is Test {
 
     function testIsValidSignaturePersonalSign() public {
         string memory message = "hello world";
-        bytes32 childHash =
-            keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n", bytes(message).length, message));
+        bytes32 childHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n11", message));
         bytes memory signature = abi.encodePacked(
             BaseLightAccount.SignatureType.EOA,
             _sign(EOA_PRIVATE_KEY, _toERC1271HashPersonalSign(childHash)),
@@ -422,8 +421,7 @@ contract LightAccountTest is Test {
     function testIsValidSignaturePersonalSignForContractOwner() public {
         _useContractOwner();
         string memory message = "hello world";
-        bytes32 childHash =
-            keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n", bytes(message).length, message));
+        bytes32 childHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n11", message));
         bytes memory signature = abi.encodePacked(
             BaseLightAccount.SignatureType.CONTRACT,
             contractOwner.sign(_toERC1271HashPersonalSign(childHash)),
@@ -434,8 +432,7 @@ contract LightAccountTest is Test {
 
     function testIsValidSignaturePersonalSignRejectsInvalid() public {
         string memory message = "hello world";
-        bytes32 childHash =
-            keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n", bytes(message).length, message));
+        bytes32 childHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n11", message));
         bytes memory signature = abi.encodePacked(
             BaseLightAccount.SignatureType.EOA, _sign(123, _toERC1271HashPersonalSign(childHash)), _PARENT_TYPEHASH
         );
