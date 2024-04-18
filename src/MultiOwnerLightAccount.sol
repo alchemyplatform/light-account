@@ -181,26 +181,26 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
 
     /// @dev The signature is valid if it is signed by the owner's private key (if the owner is an EOA) or if it is a
     /// valid ERC-1271 signature from the owner (if the owner is a contract). Reverts if the signature is malformed.
-    function _isValidSignature(bytes32 derivedHash, bytes calldata trimmedSignature)
+    /// Note that unlike the signature validation used in `validateUserOp`, this does **not** wrap the hash in an
+    /// "Ethereum Signed Message" envelope before checking the signature in the EOA-owner case.
+    function _isValidSignature(bytes32 replaySafeHash, bytes calldata signature)
         internal
         view
         virtual
         override
         returns (bool)
     {
-        if (trimmedSignature.length < 1) {
+        if (signature.length < 1) {
             revert InvalidSignatureType();
         }
-        uint8 signatureType = uint8(trimmedSignature[0]);
+        uint8 signatureType = uint8(signature[0]);
         if (signatureType == uint8(SignatureType.EOA)) {
             // EOA signature
-            bytes memory signature = trimmedSignature[1:];
-            return _isValidEOAOwnerSignature(derivedHash, signature);
+            return _isValidEOAOwnerSignature(replaySafeHash, signature[1:]);
         } else if (signatureType == uint8(SignatureType.CONTRACT_WITH_ADDR)) {
             // Contract signature with address
-            address contractOwner = address(bytes20(trimmedSignature[1:21]));
-            bytes memory signature = trimmedSignature[21:];
-            return _isValidContractOwnerSignatureNow(contractOwner, derivedHash, signature);
+            address contractOwner = address(bytes20(signature[1:21]));
+            return _isValidContractOwnerSignatureNow(contractOwner, replaySafeHash, signature[21:]);
         }
         revert InvalidSignatureType();
     }
