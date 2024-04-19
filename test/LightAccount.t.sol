@@ -22,8 +22,7 @@ contract LightAccountTest is Test {
 
     uint256 public constant EOA_PRIVATE_KEY = 1;
     address payable public constant BENEFICIARY = payable(address(0xbe9ef1c1a2ee));
-    bytes32 internal constant _PARENT_TYPEHASH = keccak256("Parent(bytes32 childHash,Mail child)Mail(string contents)");
-    bytes32 internal constant _CHILD_TYPEHASH = keccak256("Mail(string contents)");
+    bytes32 internal constant _MESSAGE_TYPEHASH = keccak256("LightAccountMessage(bytes message)");
     address public eoaAddress;
     LightAccount public account;
     EntryPoint public entryPoint;
@@ -349,110 +348,43 @@ contract LightAccountTest is Test {
     }
 
     function testIsValidSignatureForEoaOwner() public {
-        bytes32 child = keccak256(abi.encode(_CHILD_TYPEHASH, "hello world"));
+        bytes32 message = keccak256("hello world");
         bytes memory signature = abi.encodePacked(
-            BaseLightAccount.SignatureType.EOA,
-            _sign(EOA_PRIVATE_KEY, _toERC1271Hash(child)),
-            _PARENT_TYPEHASH,
-            _domainSeparatorB(),
-            child
+            BaseLightAccount.SignatureType.EOA, _sign(EOA_PRIVATE_KEY, _getMessageHash(abi.encode(message)))
         );
-        assertEq(
-            account.isValidSignature(_toChildHash(child), signature),
-            bytes4(keccak256("isValidSignature(bytes32,bytes)"))
-        );
+        assertEq(account.isValidSignature(message, signature), bytes4(keccak256("isValidSignature(bytes32,bytes)")));
     }
 
     function testIsValidSignatureForContractOwner() public {
         _useContractOwner();
-        bytes32 child = keccak256(abi.encode(_CHILD_TYPEHASH, "hello world"));
+        bytes32 message = keccak256("hello world");
         bytes memory signature = abi.encodePacked(
-            BaseLightAccount.SignatureType.CONTRACT,
-            contractOwner.sign(_toERC1271Hash(child)),
-            _PARENT_TYPEHASH,
-            _domainSeparatorB(),
-            child
+            BaseLightAccount.SignatureType.CONTRACT, contractOwner.sign(_getMessageHash(abi.encode(message)))
         );
-        assertEq(
-            account.isValidSignature(_toChildHash(child), signature),
-            bytes4(keccak256("isValidSignature(bytes32,bytes)"))
-        );
+        assertEq(account.isValidSignature(message, signature), bytes4(keccak256("isValidSignature(bytes32,bytes)")));
     }
 
     function testIsValidSignatureRejectsInvalid() public {
-        bytes32 child = keccak256(abi.encode(_CHILD_TYPEHASH, "hello world"));
-        bytes memory signature = abi.encodePacked(
-            BaseLightAccount.SignatureType.EOA,
-            _sign(123, _toERC1271Hash(child)),
-            _PARENT_TYPEHASH,
-            _domainSeparatorB(),
-            child
-        );
-        assertEq(account.isValidSignature(_toChildHash(child), signature), bytes4(0xffffffff));
+        bytes32 message = keccak256("hello world");
+        bytes memory signature =
+            abi.encodePacked(BaseLightAccount.SignatureType.EOA, _sign(123, _getMessageHash(abi.encode(message))));
+        assertEq(account.isValidSignature(message, signature), bytes4(0xffffffff));
 
-        signature = abi.encodePacked(
-            BaseLightAccount.SignatureType.EOA,
-            _sign(EOA_PRIVATE_KEY, _toERC1271Hash(child)),
-            _PARENT_TYPEHASH,
-            _domainSeparatorA(),
-            child
-        );
+        // Invalid length
+        signature =
+            abi.encodePacked(BaseLightAccount.SignatureType.EOA, hex"1234567890abcdef1234567890abcdef1234567890abcdef");
+        vm.expectRevert(abi.encodeWithSelector(ECDSA.ECDSAInvalidSignatureLength.selector, 24));
+        account.isValidSignature(message, signature);
 
-        // ERC1271.isValidSignature only truncates 32 bytes (since the wrong domain separator was used) before passing it on to _isValidSignature
-        // _isValidSignature truncates the SignatureType byte before ecrecover
-        vm.expectRevert(abi.encodeWithSelector(ECDSA.ECDSAInvalidSignatureLength.selector, (signature.length - 32 - 1)));
-        account.isValidSignature(_toChildHash(child), signature);
+        // 0 length
+        signature = abi.encodePacked(BaseLightAccount.SignatureType.EOA, hex"");
+        vm.expectRevert(abi.encodeWithSelector(ECDSA.ECDSAInvalidSignatureLength.selector, 0));
+        account.isValidSignature(message, signature);
 
+        // Missing SignatureType prefix
+        signature = _sign(EOA_PRIVATE_KEY, _getMessageHash(abi.encode(message)));
         vm.expectRevert(abi.encodeWithSelector(BaseLightAccount.InvalidSignatureType.selector));
-        account.isValidSignature(_toChildHash(child), abi.encodePacked(BaseLightAccount.SignatureType.EOA));
-    }
-
-    function testIsValidSignaturePersonalSign() public {
-        string memory message = "hello world";
-        bytes32 childHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n11", message));
-        bytes memory signature = abi.encodePacked(
-            BaseLightAccount.SignatureType.EOA,
-            _sign(EOA_PRIVATE_KEY, _toERC1271HashPersonalSign(childHash)),
-            _PARENT_TYPEHASH
-        );
-        assertEq(account.isValidSignature(childHash, signature), bytes4(keccak256("isValidSignature(bytes32,bytes)")));
-    }
-
-    function testIsValidSignaturePersonalSignForContractOwner() public {
-        _useContractOwner();
-        string memory message = "hello world";
-        bytes32 childHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n11", message));
-        bytes memory signature = abi.encodePacked(
-            BaseLightAccount.SignatureType.CONTRACT,
-            contractOwner.sign(_toERC1271HashPersonalSign(childHash)),
-            _PARENT_TYPEHASH
-        );
-        assertEq(account.isValidSignature(childHash, signature), bytes4(keccak256("isValidSignature(bytes32,bytes)")));
-    }
-
-    function testIsValidSignaturePersonalSignRejectsInvalid() public {
-        string memory message = "hello world";
-        bytes32 childHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n11", message));
-        bytes memory signature = abi.encodePacked(
-            BaseLightAccount.SignatureType.EOA, _sign(123, _toERC1271HashPersonalSign(childHash)), _PARENT_TYPEHASH
-        );
-        assertEq(account.isValidSignature(childHash, signature), bytes4(0xffffffff));
-
-        signature = abi.encodePacked(
-            BaseLightAccount.SignatureType.EOA,
-            _sign(EOA_PRIVATE_KEY, _toERC1271HashPersonalSign(childHash)),
-            _PARENT_TYPEHASH,
-            _domainSeparatorB(),
-            childHash
-        );
-
-        // ERC1271.isValidSignature only truncates 32 bytes for personal_sign before passing it on to _isValidSignature
-        // _isValidSignature truncates the SignatureType byte before ecrecover
-        vm.expectRevert(abi.encodeWithSelector(ECDSA.ECDSAInvalidSignatureLength.selector, (signature.length - 32 - 1)));
-        account.isValidSignature(childHash, signature);
-
-        vm.expectRevert(abi.encodeWithSelector(BaseLightAccount.InvalidSignatureType.selector));
-        account.isValidSignature(childHash, "");
+        account.isValidSignature(message, signature);
     }
 
     function testOwnerCanUpgrade() public {
@@ -553,7 +485,7 @@ contract LightAccountTest is Test {
                     bytes32(uint256(uint160(0x0000000071727De22E5E9d8BAf0edAc6f37da032)))
                 )
             ),
-            0xd163ff9f4127df29ad58e4686d0f5367607e32fe777a91a8f4d86fdab6e23640
+            0x5ad3bccf602cb277e15f7bcac8cd88873618c6f038cbcd490610d91be26fcf34
         );
     }
 
@@ -597,22 +529,15 @@ contract LightAccountTest is Test {
         return abi.encodePacked(r, s, v);
     }
 
-    function _toERC1271Hash(bytes32 child) internal view returns (bytes32) {
-        bytes32 parentStructHash = keccak256(abi.encode(_PARENT_TYPEHASH, _toChildHash(child), child));
-        return keccak256(abi.encodePacked("\x19\x01", _domainSeparatorA(), parentStructHash));
+    /// @dev Purposefully redefined here to surface any necessary updates to client-side message preparation for
+    /// signing, in case `account.getMessageHash()` is updated.
+    function _getMessageHash(bytes memory message) public view returns (bytes32) {
+        bytes32 structHash = keccak256(abi.encode(_MESSAGE_TYPEHASH, keccak256(message)));
+        return keccak256(abi.encodePacked("\x19\x01", _domainSeparator(), structHash));
     }
 
-    function _toERC1271HashPersonalSign(bytes32 childHash) internal view returns (bytes32) {
-        bytes32 parentStructHash = keccak256(abi.encode(_PARENT_TYPEHASH, childHash));
-        return keccak256(abi.encodePacked("\x19\x01", _domainSeparatorA(), parentStructHash));
-    }
-
-    function _toChildHash(bytes32 child) internal view returns (bytes32) {
-        return keccak256(abi.encodePacked("\x19\x01", _domainSeparatorB(), child));
-    }
-
-    /// @dev Domain separator for the parent struct.
-    function _domainSeparatorA() internal view returns (bytes32) {
+    /// @dev Domain separator for the account.
+    function _domainSeparator() internal view returns (bytes32) {
         (, string memory name, string memory version,,,,) = account.eip712Domain();
         return keccak256(
             abi.encode(
@@ -621,19 +546,6 @@ contract LightAccountTest is Test {
                 keccak256(bytes(version)),
                 block.chainid,
                 address(account)
-            )
-        );
-    }
-
-    /// @dev Domain separator for the child struct.
-    function _domainSeparatorB() internal view returns (bytes32) {
-        return keccak256(
-            abi.encode(
-                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-                keccak256("Mail"),
-                keccak256("1"),
-                block.chainid,
-                address(1)
             )
         );
     }

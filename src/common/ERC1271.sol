@@ -21,8 +21,8 @@ abstract contract ERC1271 is EIP712 {
     /// a valid ERC-1271 signature from the owner (if the owner is a contract).
     /// @param hash Hash of the data to be signed.
     /// @param signature Signature byte array associated with the data.
-    /// @return result Magic value `0x1626ba7e` if validation succeeded, else `0xffffffff`.
-    function isValidSignature(bytes32 hash, bytes calldata signature) public view virtual returns (bytes4 result) {
+    /// @return Magic value `0x1626ba7e` if validation succeeded, else `0xffffffff`.
+    function isValidSignature(bytes32 hash, bytes calldata signature) public view virtual returns (bytes4) {
         if (_isValidSignature(getMessageHash(abi.encode(hash)), signature)) {
             return _1271_MAGIC_VALUE_SUCCESS;
         }
