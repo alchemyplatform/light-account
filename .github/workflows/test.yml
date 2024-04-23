@@ -1,4 +1,4 @@
-name: sc-template Test CI
+name: test
 
 on: [pull_request, workflow_dispatch]
 

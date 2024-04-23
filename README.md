@@ -1,18 +1,19 @@
 # Light Account
 
-[![gh_ci_badge]][gh_ci_link]\
-[![discord_badge]][discord_link]
+[![gh_ci_badge]][gh_ci_link] [![discord_badge]][discord_link]
 
 [gh_ci_badge]: https://github.com/alchemyplatform/light-account/actions/workflows/test.yml/badge.svg
 [gh_ci_link]: https://github.com/alchemyplatform/light-account/actions/workflows/test.yml
-[discord_badge]: https://dcbadge.vercel.app/api/server/alchemyplatform
+[discord_badge]: https://dcbadge.vercel.app/api/server/alchemyplatform?style=flat
 [discord_link]: https://discord.gg/alchemyplatform
 
 ![](./img/light-account.jpg)
 
-A simple ERC-4337 compatible smart contract account with a designated owner. [Account Kit](https://accountkit.alchemy.com) is the easiest way to integrate Light Account.
+A set of lightweight ERC-4337 compatible smart contract accounts with designated ownership. [Account Kit](https://accountkit.alchemy.com) is the easiest way to integrate Light Account.
 
 ## Features
+
+### `LightAccount`
 
 Like [eth-infinitism](https://github.com/eth-infinitism/account-abstraction)'s [`SimpleAccount`](https://github.com/eth-infinitism/account-abstraction/blob/develop/contracts/samples/SimpleAccount.sol), but with the following changes:
 
@@ -24,9 +25,29 @@ Like [eth-infinitism](https://github.com/eth-infinitism/account-abstraction)'s [
 
    _ERC-4337's bundler validation rules limit the types of contracts that can be used as owners to validate user operation signatures. For example, the contract's `isValidSignature` function may not use any forbidden opcodes such as `TIMESTAMP` or `NUMBER`, and the contract may not be an ERC-1967 proxy as it accesses a constant implementation slot not associated with the account, violating storage access rules. This also means that the owner of a `LightAccount` may not be another `LightAccount` if you want to send user operations through a bundler._
 
-4. Event `SimpleAccountInitialized` renamed to `LightAccountInitialized`.
+4. Improves gas estimation by enabling switching between `ecrecover` and ERC-1271 signature validation by prepending a `SignatureType` byte to the user operation signature. Allowed `SignatureType` values:
 
-5. Uses custom errors.
+   - `SignatureType.EOA`: For an EOA owner. Signature is validated using `ecrecover`.
+   - `SignatureType.CONTRACT`: For a contract owner. Signature is validated using `owner.isValidSignature`.
+
+5. The factory uses Solady's `LibClone.createDeterministicERC1967` instead of OpenZeppelin's `ERC1967Proxy`.
+
+6. The factory includes ownership and entry point staking capabilities to address mempool limitations for unstaked entities as defined in [ERC-7562](https://eips.ethereum.org/EIPS/eip-7562).
+
+7. Event `SimpleAccountInitialized` renamed to `LightAccountInitialized`.
+
+8. Uses custom errors.
+
+### `MultiOwnerLightAccount`
+
+Like `LightAccount`, but with the following changes:
+
+1. Multiple owners are supported. They can be specified at account deployment, or updated via `updateOwners`. This is a simple single-step operation, so care must be taken to ensure that the ownership is being updated to the correct address(es).
+
+2. Allowed `SignatureType` values:
+
+   - `SignatureType.EOA`: For EOA owners. Signature is validated using `ecrecover`.
+   - `SignatureType.CONTRACT_WITH_ADDR`: For contract owners. Signature is validated using `owner.isValidSignature`. The contract owner address MUST be passed as part of the signature, following the format: `SignatureType.CONTRACT_WITH_ADDR || contractOwnerAddress || signature`, where `||` is the byte concatenation operator.
 
 ## Deployments
 
@@ -49,7 +70,8 @@ forge test -vvv
 The deploy script supports any [wallet options](https://book.getfoundry.sh/reference/forge/forge-script#wallet-options---raw) provided by Foundry, including local private keys, mneumonics, hardware wallets, and remote signers. Append the chosen signing method's option to the field marked `[WALLET_OPTION]` in the following script command, and set the sender address in the field `[SENDER_ADDRESS]`.
 
 ```bash
-forge script script/Deploy_LightAccountFactory.s.sol:Deploy_LightAccountFactory [WALLET_OPTION] --sender [SENDER_ADDRESS]--rpc-url [RPC_URL] -vvvv --broadcast --verify
+forge script script/Deploy_LightAccountFactory.s.sol [WALLET_OPTION] --sender [SENDER_ADDRESS]--rpc-url [RPC_URL] -vvvv --broadcast --verify
+forge script script/Deploy_MultiOwnerLightAccountFactory.s.sol [WALLET_OPTION] --sender [SENDER_ADDRESS]--rpc-url [RPC_URL] -vvvv --broadcast --verify
 ```
 
 Make sure the provided `RPC_URL` is set to an RPC for the chain you wish to deploy on.
