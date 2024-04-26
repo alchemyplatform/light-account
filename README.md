@@ -30,7 +30,7 @@ Like [eth-infinitism](https://github.com/eth-infinitism/account-abstraction)'s [
 
 ## Deployments
 
-See the current deployments in [Deployments.md](./Deployments.md).
+See the current deployments by network under the [deployments](./deployments) folder.
 
 ## Build
 
