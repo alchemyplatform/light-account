@@ -70,8 +70,8 @@ forge test -vvv
 The deploy script supports any [wallet options](https://book.getfoundry.sh/reference/forge/forge-script#wallet-options---raw) provided by Foundry, including local private keys, mneumonics, hardware wallets, and remote signers. Append the chosen signing method's option to the field marked `[WALLET_OPTION]` in the following script command, and set the sender address in the field `[SENDER_ADDRESS]`.
 
 ```bash
-forge script script/Deploy_LightAccountFactory.s.sol [WALLET_OPTION] --sender [SENDER_ADDRESS]--rpc-url [RPC_URL] -vvvv --broadcast --verify
-forge script script/Deploy_MultiOwnerLightAccountFactory.s.sol [WALLET_OPTION] --sender [SENDER_ADDRESS]--rpc-url [RPC_URL] -vvvv --broadcast --verify
+forge script script/Deploy_LightAccountFactory.s.sol [WALLET_OPTION] --sender [SENDER_ADDRESS] --rpc-url [RPC_URL] -vvvv --broadcast --verify
+forge script script/Deploy_MultiOwnerLightAccountFactory.s.sol [WALLET_OPTION] --sender [SENDER_ADDRESS] --rpc-url [RPC_URL] -vvvv --broadcast --verify
 ```
 
 Make sure the provided `RPC_URL` is set to an RPC for the chain you wish to deploy on.
