@@ -7,8 +7,6 @@ import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
 
 import {MultiOwnerLightAccountFactory} from "../src/MultiOwnerLightAccountFactory.sol";
 
-// @notice Deploys MultiOwnerLightAccountFactory
-// @dev To run: `forge script script/Deploy_MultiOwnerLightAccountFactory.s.sol:Deploy_MultiOwnerLightAccountFactory --broadcast --rpc-url ${RPC_URL} --verify -vvvv`
 contract Deploy_MultiOwnerLightAccountFactory is Script {
     // Load entrypoint from env
     address public entryPointAddr = vm.envAddress("ENTRYPOINT");

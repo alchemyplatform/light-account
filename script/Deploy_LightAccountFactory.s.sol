@@ -7,8 +7,6 @@ import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
 
 import {LightAccountFactory} from "../src/LightAccountFactory.sol";
 
-// @notice Deploys LightAccountFactory
-// @dev To run: `forge script script/Deploy_LightAccountFactory.s.sol:Deploy_LightAccountFactory --broadcast --rpc-url ${RPC_URL} --verify -vvvv`
 contract Deploy_LightAccountFactory is Script {
     // Load entrypoint from env
     address public entryPointAddr = vm.envAddress("ENTRYPOINT");
