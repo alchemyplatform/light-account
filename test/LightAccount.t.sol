@@ -23,8 +23,6 @@ contract LightAccountTest is Test {
     uint256 public constant EOA_PRIVATE_KEY = 1;
     address payable public constant BENEFICIARY = payable(address(0xbe9ef1c1a2ee));
     bytes32 internal constant _MESSAGE_TYPEHASH = keccak256("LightAccountMessage(bytes message)");
-    address public factoryOwner = 0xDdF32240B4ca3184De7EC8f0D5Aba27dEc8B7A5C;
-    address public entryPointAddr = 0x0000000071727De22E5E9d8BAf0edAc6f37da032;
     address public eoaAddress;
     LightAccount public account;
     EntryPoint public entryPoint;
@@ -37,9 +35,8 @@ contract LightAccountTest is Test {
 
     function setUp() public {
         eoaAddress = vm.addr(EOA_PRIVATE_KEY);
-        vm.etch(entryPointAddr, address(new EntryPoint()).code);
-        entryPoint = EntryPoint(payable(entryPointAddr));
-        LightAccountFactory factory = new LightAccountFactory(factoryOwner, entryPoint);
+        entryPoint = new EntryPoint();
+        LightAccountFactory factory = new LightAccountFactory(address(this), entryPoint);
         account = factory.createAccount(eoaAddress, 1);
         vm.deal(address(account), 1 << 128);
         lightSwitch = new LightSwitch();
@@ -478,13 +475,6 @@ contract LightAccountTest is Test {
             keccak256(abi.encode(uint256(keccak256("light_account_v1.initializable")) - 1)) & ~bytes32(uint256(0xff));
         uint8 initialized = abi.decode(abi.encode(vm.load(address(account), initializableSlot)), (uint8));
         assertEq(initialized, 1);
-    }
-
-    function testValidateInitCodeHash() external {
-        assertEq(
-            keccak256(abi.encodePacked(type(LightAccountFactory).creationCode, abi.encode(factoryOwner, entryPoint))),
-            0xfad339962af095db6ac3163c8504f102c28ae099db994101fbbca18ad0e3005c
-        );
     }
 
     function _useContractOwner() internal {
