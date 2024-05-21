@@ -75,6 +75,7 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
             _call(dest[i], value[i], func[i]);
         }
     }
+
     /// @notice Creates a contract, this can only be called by this account.
     /// @param initCode The initCode to deploy. NOTE: This could be replaced with transient storage in the near future,
     /// depending on gas savings, if any.
