@@ -477,6 +477,24 @@ contract LightAccountTest is Test {
         assertEq(initialized, 1);
     }
 
+    function testRevertCreateContract_IncorrectCaller() public {
+        vm.expectRevert(BaseLightAccount.OnlyCallableBySelf.selector);
+        account.create(hex"1234");
+    }
+
+    function testCreateContract() public {
+        vm.prank(eoaAddress);
+        address expected = vm.computeCreateAddress(address(account), vm.getNonce(address(account)));
+        account.execute(
+            address(account),
+            0,
+            abi.encodeCall(
+                account.create, (abi.encodePacked(type(LightAccount).creationCode, abi.encode(address(0x4546b))))
+            )
+        );
+        assertEq(address(LightAccount(payable(expected)).entryPoint()), address(0x4546b));
+    }
+
     function _useContractOwner() internal {
         vm.prank(eoaAddress);
         account.transferOwnership(address(contractOwner));

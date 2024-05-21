@@ -74,6 +74,22 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
             _call(dest[i], value[i], func[i]);
         }
     }
+    /// @notice Creates a contract, this can only be called by this account.
+    /// @param initCode The initCode to deploy. NOTE: This could be replaced with transient storage in the near future,
+    /// depending on gas savings, if any.
+    function create(bytes calldata initCode) external payable virtual {
+        assembly ("memory-safe") {
+            // Check that the caller is this account, compiles to the same as inverting the condition.
+            if iszero(eq(caller(), address())) {
+                mstore(0, 0x913e98f1)
+                revert(28, 4)
+            }
+            let len := initCode.length
+            calldatacopy(0, initCode.offset, len)
+            let succ := create(callvalue(), 0, len)
+            return(0, 0)
+        }
+    }
 
     /// @notice Deposit more funds for this account in the entry point.
     function addDeposit() external payable {
