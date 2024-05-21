@@ -24,6 +24,7 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     error InvalidSignatureType();
     error NotAuthorized(address caller);
     error ZeroAddressNotAllowed();
+    error OnlyCallableBySelf();
 
     modifier onlyAuthorized() {
         _onlyAuthorized();
