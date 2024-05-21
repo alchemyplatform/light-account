@@ -482,6 +482,19 @@ contract LightAccountTest is Test {
         account.create(hex"1234");
     }
 
+    function testRevertCreateContract_CreateFailed() public {
+        vm.prank(eoaAddress);
+        vm.expectRevert(BaseLightAccount.CreateFailed.selector);
+        account.execute(
+            address(account),
+            0,
+            abi.encodeCall(
+                account.create,
+                (hex"01") // Attempt to deploy a contract with a single "ADD" opcode as the whole initcode, which will revert.
+            )
+        );
+    }
+
     function testCreateContract() public {
         vm.prank(eoaAddress);
         address expected = vm.computeCreateAddress(address(account), vm.getNonce(address(account)));

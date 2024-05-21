@@ -25,6 +25,7 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     error NotAuthorized(address caller);
     error ZeroAddressNotAllowed();
     error OnlyCallableBySelf();
+    error CreateFailed();
 
     modifier onlyAuthorized() {
         _onlyAuthorized();
@@ -81,15 +82,22 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     /// depending on gas savings, if any.
     function create(bytes calldata initCode) external payable virtual {
         assembly ("memory-safe") {
-            // Check that the caller is this account, compiles to the same as inverting the condition.
+            // Check that the caller is this account, this compiles to the same as inverting the condition
             if iszero(eq(caller(), address())) {
-                mstore(0, 0x913e98f1)
+                mstore(0, 0x913e98f1) // OnlyCallableBySelf()
                 revert(28, 4)
             }
+
+            // Copy the initCode to memory, then deploy the contract
             let len := initCode.length
             calldatacopy(0, initCode.offset, len)
             let succ := create(callvalue(), 0, len)
-            return(0, 0)
+
+            // If the creation fails, revert
+            if iszero(succ) {
+                mstore(0, 0x7e16b8cd) // CreateFailed()
+                revert(28, 4)
+            }
         }
     }
 
