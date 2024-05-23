@@ -80,18 +80,27 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     /// @notice Creates a contract, this can only be called by this account.
     /// @param initCode The initCode to deploy. NOTE: This could be replaced with transient storage in the near future,
     /// depending on gas savings, if any.
-    function create(bytes calldata initCode) external payable virtual {
+    function create(bytes calldata initCode, uint256 value) external payable virtual onlyAuthorized {
         assembly ("memory-safe") {
-            // Check that the caller is this account, this compiles to the same as inverting the condition
-            if iszero(eq(caller(), address())) {
-                mstore(0, 0x913e98f1) // OnlyCallableBySelf()
-                revert(28, 4)
-            }
-
             // Copy the initCode to memory, then deploy the contract
             let len := initCode.length
             calldatacopy(0, initCode.offset, len)
-            let succ := create(callvalue(), 0, len)
+            let succ := create(value, 0, len)
+
+            // If the creation fails, revert
+            if iszero(succ) {
+                mstore(0, 0x7e16b8cd) // CreateFailed()
+                revert(28, 4)
+            }
+        }
+    }
+
+    function create2(bytes calldata initCode, bytes32 salt, uint256 value) external payable virtual onlyAuthorized {
+        assembly ("memory-safe") {
+            // Copy the initCode to memory, then deploy the contract
+            let len := initCode.length
+            calldatacopy(0, initCode.offset, len)
+            let succ := create2(value, 0, len, salt)
 
             // If the creation fails, revert
             if iszero(succ) {
