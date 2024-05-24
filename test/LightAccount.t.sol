@@ -490,7 +490,7 @@ contract LightAccountTest is Test {
             0,
             abi.encodeCall(
                 account.create,
-                (hex"01", 0) // Attempt to deploy a contract with a single "ADD" opcode as the whole initcode, which will revert.
+                (hex"3d3dfd", 0) // Attempt to deploy a contract with creation code that reverts.
             )
         );
     }
@@ -503,7 +503,7 @@ contract LightAccountTest is Test {
     function testRevertCreate2_CreateFailed() public {
         vm.prank(eoaAddress);
         vm.expectRevert(BaseLightAccount.CreateFailed.selector);
-        account.create2(hex"01", bytes32(0), 0);
+        account.create2(hex"3d3dfd", bytes32(0), 0);
     }
 
     function testCreate() public {
