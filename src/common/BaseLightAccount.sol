@@ -24,7 +24,6 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     error InvalidSignatureType();
     error NotAuthorized(address caller);
     error ZeroAddressNotAllowed();
-    error OnlyCallableBySelf();
     error CreateFailed();
 
     modifier onlyAuthorized() {
@@ -158,10 +157,12 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     }
 
     function _call(address target, uint256 value, bytes memory data) internal {
-        (bool success, bytes memory result) = target.call{value: value}(data);
-        if (!success) {
-            assembly ("memory-safe") {
-                revert(add(result, 32), mload(result))
+        assembly ("memory-safe") {
+            let succ := call(gas(), target, value, add(data, 32), mload(data), 0, 0)
+            if iszero(succ) {
+                // We can overwrite memory since we're going to revert out of this call frame anyway
+                returndatacopy(0, 0, returndatasize())
+                revert(0, returndatasize())
             }
         }
     }
