@@ -82,9 +82,10 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     function create(bytes calldata initCode, uint256 value) external payable virtual onlyAuthorized {
         assembly ("memory-safe") {
             // Copy the initCode to memory, then deploy the contract
+            let ptr := mload(64)
             let len := initCode.length
-            calldatacopy(0, initCode.offset, len)
-            let succ := create(value, 0, len)
+            calldatacopy(ptr, initCode.offset, len)
+            let succ := create(value, ptr, len)
 
             // If the creation fails, revert
             if iszero(succ) {
@@ -97,9 +98,10 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     function create2(bytes calldata initCode, bytes32 salt, uint256 value) external payable virtual onlyAuthorized {
         assembly ("memory-safe") {
             // Copy the initCode to memory, then deploy the contract
+            let ptr := mload(64)
             let len := initCode.length
-            calldatacopy(0, initCode.offset, len)
-            let succ := create2(value, 0, len, salt)
+            calldatacopy(ptr, initCode.offset, len)
+            let succ := create2(value, ptr, len, salt)
 
             // If the creation fails, revert
             if iszero(succ) {
@@ -161,8 +163,9 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
             let succ := call(gas(), target, value, add(data, 32), mload(data), 0, 0)
             if iszero(succ) {
                 // We can overwrite memory since we're going to revert out of this call frame anyway
-                returndatacopy(0, 0, returndatasize())
-                revert(0, returndatasize())
+                let ptr := mload(64)
+                returndatacopy(ptr, 0, returndatasize())
+                revert(ptr, returndatasize())
             }
         }
     }
