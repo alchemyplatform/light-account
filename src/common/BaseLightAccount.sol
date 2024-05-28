@@ -82,15 +82,15 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     function create(bytes calldata initCode, uint256 value) external payable virtual onlyAuthorized {
         assembly ("memory-safe") {
             // Copy the initCode to memory, then deploy the contract
-            let ptr := mload(64)
+            let ptr := mload(0x40)
             let len := initCode.length
             calldatacopy(ptr, initCode.offset, len)
             let succ := create(value, ptr, len)
 
             // If the creation fails, revert
             if iszero(succ) {
-                mstore(0, 0x7e16b8cd) // CreateFailed()
-                revert(28, 4)
+                mstore(0x00, 0x7e16b8cd) // CreateFailed()
+                revert(0x1c, 0x04)
             }
         }
     }
@@ -98,15 +98,15 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     function create2(bytes calldata initCode, bytes32 salt, uint256 value) external payable virtual onlyAuthorized {
         assembly ("memory-safe") {
             // Copy the initCode to memory, then deploy the contract
-            let ptr := mload(64)
+            let ptr := mload(0x40)
             let len := initCode.length
             calldatacopy(ptr, initCode.offset, len)
             let succ := create2(value, ptr, len, salt)
 
             // If the creation fails, revert
             if iszero(succ) {
-                mstore(0, 0x7e16b8cd) // CreateFailed()
-                revert(28, 4)
+                mstore(0x00, 0x7e16b8cd) // CreateFailed()
+                revert(0x1c, 0x04)
             }
         }
     }
@@ -160,11 +160,11 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
 
     function _call(address target, uint256 value, bytes memory data) internal {
         assembly ("memory-safe") {
-            let succ := call(gas(), target, value, add(data, 32), mload(data), 0, 0)
+            let succ := call(gas(), target, value, add(data, 0x20), mload(data), 0x00, 0)
             if iszero(succ) {
                 // We can overwrite memory since we're going to revert out of this call frame anyway
-                let ptr := mload(64)
-                returndatacopy(ptr, 0, returndatasize())
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
         }
