@@ -21,10 +21,10 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     }
 
     error ArrayLengthMismatch();
+    error CreateFailed();
     error InvalidSignatureType();
     error NotAuthorized(address caller);
     error ZeroAddressNotAllowed();
-    error CreateFailed();
 
     modifier onlyAuthorized() {
         _onlyAuthorized();
@@ -89,7 +89,7 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     ///     5. If creation failed (the address returned is zero), revert with CreateFailed().
     function create(bytes calldata initCode, uint256 value) external payable virtual onlyAuthorized returns (address createdAddr) {
         assembly ("memory-safe") {
-            
+
             let fmp := mload(0x40)
             let len := initCode.length
             calldatacopy(fmp, initCode.offset, len)
