@@ -502,8 +502,9 @@ contract LightAccountTest is Test {
     function testCreate() public {
         vm.prank(eoaAddress);
         address expected = vm.computeCreateAddress(address(account), vm.getNonce(address(account)));
-        
-        address returnedAddress = account.performCreate(0, abi.encodePacked(type(LightAccount).creationCode, abi.encode(address(entryPoint))));
+
+        address returnedAddress =
+            account.performCreate(0, abi.encodePacked(type(LightAccount).creationCode, abi.encode(address(entryPoint))));
         assertEq(address(LightAccount(payable(expected)).entryPoint()), address(entryPoint));
         assertEq(returnedAddress, expected);
     }
@@ -511,7 +512,7 @@ contract LightAccountTest is Test {
     function testCreateValue() public {
         vm.prank(eoaAddress);
         address expected = vm.computeCreateAddress(address(account), vm.getNonce(address(account)));
-        
+
         uint256 value = 1 ether;
         deal(address(account), value);
 
@@ -538,7 +539,7 @@ contract LightAccountTest is Test {
         bytes32 initCodeHash = keccak256(initCode);
         bytes32 salt = bytes32(hex"04546b");
         address expected = vm.computeCreate2Address(salt, initCodeHash, address(account));
-        
+
         uint256 value = 1 ether;
         deal(address(account), value);
 

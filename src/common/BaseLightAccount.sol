@@ -80,16 +80,21 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     /// @param value The value to send to the new contract constructor.
     /// @param initCode The initCode to deploy.
     /// @return createdAddr The created contract address.
-    /// 
+    ///
     /// @dev Assembly procedure:
     ///     1. Load the free memory pointer.
     ///     2. Get the initCode length.
     ///     3. Copy the initCode from callata to memory at the free memory pointer.
     ///     4. Create the contract.
     ///     5. If creation failed (the address returned is zero), revert with CreateFailed().
-    function performCreate(uint256 value, bytes calldata initCode) external payable virtual onlyAuthorized returns (address createdAddr) {
+    function performCreate(uint256 value, bytes calldata initCode)
+        external
+        payable
+        virtual
+        onlyAuthorized
+        returns (address createdAddr)
+    {
         assembly ("memory-safe") {
-
             let fmp := mload(0x40)
             let len := initCode.length
             calldatacopy(fmp, initCode.offset, len)
@@ -108,20 +113,25 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     /// @param initCode The initCode to deploy.
     /// @param salt The salt to use for the create2 operation.
     /// @return createdAddr The created contract address.
-    /// 
+    ///
     /// @dev Assembly procedure:
     ///     1. Load the free memory pointer.
     ///     2. Get the initCode length.
     ///     3. Copy the initCode from callata to memory at the free memory pointer.
     ///     4. Create the contract using Create2 with the passed salt parameter.
     ///     5. If creation failed (the address returned is zero), revert with CreateFailed().
-    function performCreate2(uint256 value, bytes calldata initCode, bytes32 salt) external payable virtual onlyAuthorized returns (address createdAddr) {
+    function performCreate2(uint256 value, bytes calldata initCode, bytes32 salt)
+        external
+        payable
+        virtual
+        onlyAuthorized
+        returns (address createdAddr)
+    {
         assembly ("memory-safe") {
-            
             let fmp := mload(0x40)
             let len := initCode.length
             calldatacopy(fmp, initCode.offset, len)
-                
+
             createdAddr := create2(value, fmp, len, salt)
 
             if iszero(createdAddr) {
@@ -191,9 +201,8 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     ///         3. Revert with the copied return data
     function _call(address target, uint256 value, bytes memory data) internal {
         assembly ("memory-safe") {
-            
             let succ := call(gas(), target, value, add(data, 0x20), mload(data), 0x00, 0)
-            
+
             if iszero(succ) {
                 let fmp := mload(0x40)
                 returndatacopy(fmp, 0x00, returndatasize())
