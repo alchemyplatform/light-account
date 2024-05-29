@@ -76,36 +76,56 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
         }
     }
 
-    /// @notice Creates a contract, this can only be called by this account.
-    /// @param initCode The initCode to deploy. NOTE: This could be replaced with transient storage in the near future,
-    /// depending on gas savings, if any.
-    function create(bytes calldata initCode, uint256 value) external payable virtual onlyAuthorized {
+    /// @notice Creates a contract.
+    /// @param initCode The initCode to deploy.
+    /// @param value The value to send to the new contract constructor.
+    /// @return createdAddr The created contract address.
+    /// 
+    /// @dev Assembly procedure:
+    ///     1. Load the free memory pointer.
+    ///     2. Get the initCode length.
+    ///     3. Copy the initCode from callata to memory at the free memory pointer.
+    ///     4. Create the contract.
+    ///     5. If creation failed (the address returned is zero), revert with CreateFailed().
+    function create(bytes calldata initCode, uint256 value) external payable virtual onlyAuthorized returns (address createdAddr) {
         assembly ("memory-safe") {
-            // Copy the initCode to memory, then deploy the contract
-            let ptr := mload(0x40)
+            
+            let fmp := mload(0x40)
             let len := initCode.length
-            calldatacopy(ptr, initCode.offset, len)
-            let succ := create(value, ptr, len)
+            calldatacopy(fmp, initCode.offset, len)
 
-            // If the creation fails, revert
-            if iszero(succ) {
-                mstore(0x00, 0x7e16b8cd) // CreateFailed()
+            createdAddr := create(value, fmp, len)
+
+            if iszero(createdAddr) {
+                mstore(0x00, 0x7e16b8cd)
                 revert(0x1c, 0x04)
             }
         }
     }
 
-    function create2(bytes calldata initCode, bytes32 salt, uint256 value) external payable virtual onlyAuthorized {
+    /// @notice Creates a contract using create2 deterministic deployment.
+    /// @param initCode The initCode to deploy.
+    /// @param salt The salt to use for the create2 operation.
+    /// @param value The value to send to the new contract constructor.
+    /// @return createdAddr The created contract address.
+    /// 
+    /// @dev Assembly procedure:
+    ///     1. Load the free memory pointer.
+    ///     2. Get the initCode length.
+    ///     3. Copy the initCode from callata to memory at the free memory pointer.
+    ///     4. Create the contract using Create2 with the passed salt parameter.
+    ///     5. If creation failed (the address returned is zero), revert with CreateFailed().
+    function create2(bytes calldata initCode, bytes32 salt, uint256 value) external payable virtual onlyAuthorized returns (address createdAddr) {
         assembly ("memory-safe") {
-            // Copy the initCode to memory, then deploy the contract
-            let ptr := mload(0x40)
+            
+            let fmp := mload(0x40)
             let len := initCode.length
-            calldatacopy(ptr, initCode.offset, len)
-            let succ := create2(value, ptr, len, salt)
+            calldatacopy(fmp, initCode.offset, len)
+                
+            createdAddr := create2(value, fmp, len, salt)
 
-            // If the creation fails, revert
-            if iszero(succ) {
-                mstore(0x00, 0x7e16b8cd) // CreateFailed()
+            if iszero(createdAddr) {
+                mstore(0x00, 0x7e16b8cd)
                 revert(0x1c, 0x04)
             }
         }
@@ -158,14 +178,26 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
         return success ? SIG_VALIDATION_SUCCESS : SIG_VALIDATION_FAILED;
     }
 
+    /// @dev Assembly procedure:
+    ///     1. Execute the call, passing:
+    ///         1. The gas
+    ///         2. The target address
+    ///         3. The call value
+    ///         4. The pointer to the start location of the callData in memory
+    ///         5. The length of the calldata
+    ///     2. If the call failed, bubble up the revert reason by doing the following:
+    ///         1. Load the free memory pointer
+    ///         2. Copy the return data (which is the revert reason) to memory at the free memory pointer
+    ///         3. Revert with the copied return data
     function _call(address target, uint256 value, bytes memory data) internal {
         assembly ("memory-safe") {
+            
             let succ := call(gas(), target, value, add(data, 0x20), mload(data), 0x00, 0)
+            
             if iszero(succ) {
-                // We can overwrite memory since we're going to revert out of this call frame anyway
-                let ptr := mload(0x40)
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
+                let fmp := mload(0x40)
+                returndatacopy(fmp, 0x00, returndatasize())
+                revert(fmp, returndatasize())
             }
         }
     }
