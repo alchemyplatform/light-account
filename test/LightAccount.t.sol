@@ -479,38 +479,45 @@ contract LightAccountTest is Test {
 
     function testRevertCreate_IncorrectCaller() public {
         vm.expectRevert(abi.encodeWithSelector(BaseLightAccount.NotAuthorized.selector, address(this)));
-        account.create(hex"1234", 0);
+        account.performCreate(0, hex"1234");
     }
 
     function testRevertCreate_CreateFailed() public {
         vm.prank(eoaAddress);
         vm.expectRevert(BaseLightAccount.CreateFailed.selector);
-        account.execute(
-            address(account),
-            0,
-            abi.encodeCall(
-                account.create,
-                (hex"3d3dfd", 0) // Attempt to deploy a contract with creation code that reverts.
-            )
-        );
+        account.performCreate(0, hex"3d3dfd");
     }
 
     function testRevertCreate2_IncorrectCaller() public {
         vm.expectRevert(abi.encodeWithSelector(BaseLightAccount.NotAuthorized.selector, address(this)));
-        account.create2(hex"1234", bytes32(0), 0);
+        account.performCreate2(0, hex"1234", bytes32(0));
     }
 
     function testRevertCreate2_CreateFailed() public {
         vm.prank(eoaAddress);
         vm.expectRevert(BaseLightAccount.CreateFailed.selector);
-        account.create2(hex"3d3dfd", bytes32(0), 0);
+        account.performCreate2(0, hex"3d3dfd", bytes32(0));
     }
 
     function testCreate() public {
         vm.prank(eoaAddress);
         address expected = vm.computeCreateAddress(address(account), vm.getNonce(address(account)));
-        account.create(abi.encodePacked(type(LightAccount).creationCode, abi.encode(address(entryPoint))), 0);
+        
+        address returnedAddress = account.performCreate(0, abi.encodePacked(type(LightAccount).creationCode, abi.encode(address(entryPoint))));
         assertEq(address(LightAccount(payable(expected)).entryPoint()), address(entryPoint));
+        assertEq(returnedAddress, expected);
+    }
+
+    function testCreateValue() public {
+        vm.prank(eoaAddress);
+        address expected = vm.computeCreateAddress(address(account), vm.getNonce(address(account)));
+        
+        uint256 value = 1 ether;
+        deal(address(account), value);
+
+        address returnedAddress = account.performCreate(value, "");
+        assertEq(returnedAddress, expected);
+        assertEq(returnedAddress.balance, value);
     }
 
     function testCreate2() public {
@@ -520,8 +527,24 @@ contract LightAccountTest is Test {
         bytes32 salt = bytes32(hex"04546b");
         address expected = vm.computeCreate2Address(salt, initCodeHash, address(account));
 
-        account.create2(abi.encodePacked(type(LightAccount).creationCode, abi.encode(address(entryPoint))), salt, 0);
+        address returnedAddress = account.performCreate2(0, initCode, salt);
         assertEq(address(LightAccount(payable(expected)).entryPoint()), address(entryPoint));
+        assertEq(returnedAddress, expected);
+    }
+
+    function testCreate2Value() public {
+        vm.prank(eoaAddress);
+        bytes memory initCode = "";
+        bytes32 initCodeHash = keccak256(initCode);
+        bytes32 salt = bytes32(hex"04546b");
+        address expected = vm.computeCreate2Address(salt, initCodeHash, address(account));
+        
+        uint256 value = 1 ether;
+        deal(address(account), value);
+
+        address returnedAddress = account.performCreate2(value, initCode, salt);
+        assertEq(returnedAddress, expected);
+        assertEq(returnedAddress.balance, value);
     }
 
     function _useContractOwner() internal {

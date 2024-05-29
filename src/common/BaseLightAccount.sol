@@ -77,8 +77,8 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     }
 
     /// @notice Creates a contract.
-    /// @param initCode The initCode to deploy.
     /// @param value The value to send to the new contract constructor.
+    /// @param initCode The initCode to deploy.
     /// @return createdAddr The created contract address.
     /// 
     /// @dev Assembly procedure:
@@ -87,7 +87,7 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     ///     3. Copy the initCode from callata to memory at the free memory pointer.
     ///     4. Create the contract.
     ///     5. If creation failed (the address returned is zero), revert with CreateFailed().
-    function create(bytes calldata initCode, uint256 value) external payable virtual onlyAuthorized returns (address createdAddr) {
+    function performCreate(uint256 value, bytes calldata initCode) external payable virtual onlyAuthorized returns (address createdAddr) {
         assembly ("memory-safe") {
 
             let fmp := mload(0x40)
@@ -104,9 +104,9 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     }
 
     /// @notice Creates a contract using create2 deterministic deployment.
+    /// @param value The value to send to the new contract constructor.
     /// @param initCode The initCode to deploy.
     /// @param salt The salt to use for the create2 operation.
-    /// @param value The value to send to the new contract constructor.
     /// @return createdAddr The created contract address.
     /// 
     /// @dev Assembly procedure:
@@ -115,7 +115,7 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     ///     3. Copy the initCode from callata to memory at the free memory pointer.
     ///     4. Create the contract using Create2 with the passed salt parameter.
     ///     5. If creation failed (the address returned is zero), revert with CreateFailed().
-    function create2(bytes calldata initCode, bytes32 salt, uint256 value) external payable virtual onlyAuthorized returns (address createdAddr) {
+    function performCreate2(uint256 value, bytes calldata initCode, bytes32 salt) external payable virtual onlyAuthorized returns (address createdAddr) {
         assembly ("memory-safe") {
             
             let fmp := mload(0x40)
