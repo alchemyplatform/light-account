@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import "forge-std/Script.sol";
 
 import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
-
+import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 import {MultiOwnerLightAccountFactory} from "../src/MultiOwnerLightAccountFactory.sol";
 
 contract Deploy_MultiOwnerLightAccountFactory is Script {
@@ -21,7 +21,6 @@ contract Deploy_MultiOwnerLightAccountFactory is Script {
     function run() public {
         vm.startBroadcast();
 
-        // Init code hash check
         bytes32 initCodeHash =
             keccak256(abi.encodePacked(type(MultiOwnerLightAccountFactory).creationCode, abi.encode(owner, entryPoint)));
 
@@ -39,14 +38,7 @@ contract Deploy_MultiOwnerLightAccountFactory is Script {
         console.log("******** Deploying.... *********");
         console.log("********************************");
 
-        MultiOwnerLightAccountFactory factory = new MultiOwnerLightAccountFactory{
-            salt: 0x0000000000000000000000000000000000000000bb3ab048b3f4ef2620ea0163
-        }(owner, entryPoint);
-
-        // Deployed address check
-        if (address(factory) != 0x000000000019d2Ee9F2729A65AfE20bb0020AefC) {
-            revert DeployedAddressMismatch(address(factory));
-        }
+        MultiOwnerLightAccountFactory factory = deployImpl(0x0000000000000000000000000000000000000000bb3ab048b3f4ef2620ea0163, 0x000000000019d2Ee9F2729A65AfE20bb0020AefC, owner, entryPoint);
 
         _addStakeForFactory(address(factory));
 
@@ -55,6 +47,22 @@ contract Deploy_MultiOwnerLightAccountFactory is Script {
         console.log();
 
         vm.stopBroadcast();
+    }
+
+    function deployImpl(bytes32 saltBytes, address expected, address ownerAddr, IEntryPoint ep) private returns (MultiOwnerLightAccountFactory) {
+        address addr = Create2.computeAddress(
+            saltBytes, keccak256(abi.encodePacked(type(MultiOwnerLightAccountFactory).creationCode, abi.encode(ownerAddr, ep))), CREATE2_FACTORY
+        );
+        console.logAddress(addr);
+        require(addr == expected, "Expected address is not the same as computed for impl");
+        if (addr.code.length > 0) {
+            console.log("MultiOwnerLightAccount impl already deployed. Skipping");
+            return MultiOwnerLightAccountFactory(payable(addr));
+        }
+
+        MultiOwnerLightAccountFactory impl = new MultiOwnerLightAccountFactory{salt: saltBytes}(ownerAddr, ep);
+        require(address(impl) == addr, "Impl address did not match predicted");
+        return impl;
     }
 
     function _addStakeForFactory(address factoryAddr) internal {
