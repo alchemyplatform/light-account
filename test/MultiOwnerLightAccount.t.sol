@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.28;
 
 import "forge-std/Test.sol";
 
 import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {EntryPoint} from "account-abstraction/core/EntryPoint.sol";
 import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
 import {PackedUserOperation} from "account-abstraction/interfaces/PackedUserOperation.sol";
-import {SimpleAccount} from "account-abstraction/samples/SimpleAccount.sol";
+import {SimpleAccount} from "account-abstraction/accounts/SimpleAccount.sol";
 import {SENTINEL_VALUE} from "modular-account/libraries/Constants.sol";
 import {LinkedListSet, LinkedListSetLib} from "modular-account/libraries/LinkedListSetLib.sol";
 
@@ -20,7 +19,6 @@ import {MultiOwnerLightAccountFactory} from "../src/MultiOwnerLightAccountFactor
 contract MultiOwnerLightAccountTest is Test {
     using stdStorage for StdStorage;
     using ECDSA for bytes32;
-    using MessageHashUtils for bytes32;
     using LinkedListSetLib for LinkedListSet;
 
     uint256 public constant EOA_PRIVATE_KEY = 1;
@@ -655,9 +653,8 @@ contract MultiOwnerLightAccountTest is Test {
         returns (PackedUserOperation memory)
     {
         PackedUserOperation memory op = _getUnsignedOp(callData);
-        op.signature = abi.encodePacked(
-            BaseLightAccount.SignatureType.EOA, _sign(privateKey, entryPoint.getUserOpHash(op).toEthSignedMessageHash())
-        );
+        op.signature =
+            abi.encodePacked(BaseLightAccount.SignatureType.EOA, _sign(privateKey, entryPoint.getUserOpHash(op)));
         return op;
     }
 

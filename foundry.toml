@@ -1,6 +1,6 @@
 [profile.default]
-solc = '0.8.23'
-evm_version = 'paris'
+solc = '0.8.28'
+evm_version = 'cancun'
 via_ir = true
 src = 'src'
 out = 'out'

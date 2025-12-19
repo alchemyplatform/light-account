@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.28;
 
 import {BaseAccount} from "account-abstraction/core/BaseAccount.sol";
 import {SIG_VALIDATION_FAILED, SIG_VALIDATION_SUCCESS} from "account-abstraction/core/Helpers.sol";
 import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
 import {PackedUserOperation} from "account-abstraction/interfaces/PackedUserOperation.sol";
-import {TokenCallbackHandler} from "account-abstraction/samples/callback/TokenCallbackHandler.sol";
+import {TokenCallbackHandler} from "account-abstraction/accounts/callback/TokenCallbackHandler.sol";
 
 import {UUPSUpgradeable} from "../external/solady/UUPSUpgradeable.sol";
 import {ERC1271} from "./ERC1271.sol";
@@ -39,7 +39,7 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
     /// @param dest The target of the transaction.
     /// @param value The amount of wei sent in the transaction.
     /// @param func The transaction's calldata.
-    function execute(address dest, uint256 value, bytes calldata func) external virtual onlyAuthorized {
+    function execute(address dest, uint256 value, bytes calldata func) external virtual override onlyAuthorized {
         _call(dest, value, func);
     }
 

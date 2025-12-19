@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.28;
 
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
 import {PackedUserOperation} from "account-abstraction/interfaces/PackedUserOperation.sol";
@@ -18,7 +17,6 @@ import {CustomSlotInitializable} from "./common/CustomSlotInitializable.sol";
 /// and the `updateOwners` method can be used to add or remove owners.
 contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
     using ECDSA for bytes32;
-    using MessageHashUtils for bytes32;
     using LinkedListSetLib for LinkedListSet;
     using CastLib for address;
     using CastLib for SetValue[];
@@ -141,10 +139,7 @@ contract MultiOwnerLightAccount is BaseLightAccount, CustomSlotInitializable {
         }
         uint8 signatureType = uint8(userOp.signature[0]);
         if (signatureType == uint8(SignatureType.EOA)) {
-            // EOA signature
-            bytes32 signedHash = userOpHash.toEthSignedMessageHash();
-            bytes memory signature = userOp.signature[1:];
-            return _successToValidationData(_isValidEOAOwnerSignature(signedHash, signature));
+            return _successToValidationData(_isValidEOAOwnerSignature(userOpHash, userOp.signature[1:]));
         } else if (signatureType == uint8(SignatureType.CONTRACT_WITH_ADDR)) {
             // Contract signature with address
             address contractOwner = address(bytes20(userOp.signature[1:21]));

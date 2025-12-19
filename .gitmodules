@@ -5,11 +5,11 @@
 [submodule "lib/openzeppelin-contracts"]
 	path = lib/openzeppelin-contracts
 	url = https://github.com/openzeppelin/openzeppelin-contracts
-	branch = release-v5.0
+	branch = release-v5.1
 [submodule "lib/account-abstraction"]
 	path = lib/account-abstraction
 	url = https://github.com/eth-infinitism/account-abstraction
-	branch = releases/v0.7
+	branch = releases/v0.8
 [submodule "lib/modular-account"]
 	path = lib/modular-account
 	url = https://github.com/alchemyplatform/modular-account

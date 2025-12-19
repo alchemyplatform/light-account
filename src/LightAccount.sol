@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.28;
 
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {SIG_VALIDATION_FAILED} from "account-abstraction/core/Helpers.sol";
 import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
@@ -35,7 +34,6 @@ import {CustomSlotInitializable} from "./common/CustomSlotInitializable.sol";
 /// 5. Uses custom errors.
 contract LightAccount is BaseLightAccount, CustomSlotInitializable {
     using ECDSA for bytes32;
-    using MessageHashUtils for bytes32;
 
     /// @dev The version used for namespaced storage is not linked to the release version of the contract. Storage
     /// versions will be updated only when storage layout changes are made.
@@ -127,10 +125,7 @@ contract LightAccount is BaseLightAccount, CustomSlotInitializable {
         }
         uint8 signatureType = uint8(userOp.signature[0]);
         if (signatureType == uint8(SignatureType.EOA)) {
-            // EOA signature
-            bytes32 signedHash = userOpHash.toEthSignedMessageHash();
-            bytes memory signature = userOp.signature[1:];
-            return _successToValidationData(_isValidEOAOwnerSignature(signedHash, signature));
+            return _successToValidationData(_isValidEOAOwnerSignature(userOpHash, userOp.signature[1:]));
         } else if (signatureType == uint8(SignatureType.CONTRACT)) {
             // Contract signature without address
             bytes memory signature = userOp.signature[1:];
