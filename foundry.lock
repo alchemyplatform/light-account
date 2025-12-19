@@ -1,0 +1,26 @@
+{
+  "lib/account-abstraction": {
+    "branch": {
+      "name": "releases/v0.8",
+      "rev": "4cbc06072cdc19fd60f285c5997f4f7f57a588de"
+    }
+  },
+  "lib/forge-std": {
+    "branch": {
+      "name": "v1",
+      "rev": "ae570fec082bfe1c1f45b0acca4a2b4f84d345ce"
+    }
+  },
+  "lib/modular-account": {
+    "branch": {
+      "name": "v1.0.x",
+      "rev": "1ceb7935b3d8642283f0dc8fd0a7a7f00132be9d"
+    }
+  },
+  "lib/openzeppelin-contracts": {
+    "branch": {
+      "name": "release-v5.1",
+      "rev": "69c8def5f222ff96f2b5beff05dfba996368aa79"
+    }
+  }
+}

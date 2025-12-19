@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.28;
 
 import "forge-std/Test.sol";
 
 import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {EntryPoint} from "account-abstraction/core/EntryPoint.sol";
 import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
 import {PackedUserOperation} from "account-abstraction/interfaces/PackedUserOperation.sol";
-import {SimpleAccount} from "account-abstraction/samples/SimpleAccount.sol";
+import {SimpleAccount} from "account-abstraction/accounts/SimpleAccount.sol";
 
 import {BaseLightAccount} from "../src/common/BaseLightAccount.sol";
 import {LightAccount} from "../src/LightAccount.sol";
@@ -18,7 +17,6 @@ import {LightAccountFactory} from "../src/LightAccountFactory.sol";
 contract LightAccountTest is Test {
     using stdStorage for StdStorage;
     using ECDSA for bytes32;
-    using MessageHashUtils for bytes32;
 
     uint256 public constant EOA_PRIVATE_KEY = 1;
     address payable public constant BENEFICIARY = payable(address(0xbe9ef1c1a2ee));
@@ -503,8 +501,9 @@ contract LightAccountTest is Test {
         vm.prank(eoaAddress);
         address expected = vm.computeCreateAddress(address(account), vm.getNonce(address(account)));
 
-        address returnedAddress =
-            account.performCreate(0, abi.encodePacked(type(LightAccount).creationCode, abi.encode(address(entryPoint))));
+        address returnedAddress = account.performCreate(
+            0, abi.encodePacked(type(LightAccount).creationCode, abi.encode(address(entryPoint)))
+        );
         assertEq(address(LightAccount(payable(expected)).entryPoint()), address(entryPoint));
         assertEq(returnedAddress, expected);
     }
@@ -577,9 +576,8 @@ contract LightAccountTest is Test {
         returns (PackedUserOperation memory)
     {
         PackedUserOperation memory op = _getUnsignedOp(callData);
-        op.signature = abi.encodePacked(
-            BaseLightAccount.SignatureType.EOA, _sign(privateKey, entryPoint.getUserOpHash(op).toEthSignedMessageHash())
-        );
+        op.signature =
+            abi.encodePacked(BaseLightAccount.SignatureType.EOA, _sign(privateKey, entryPoint.getUserOpHash(op)));
         return op;
     }
 

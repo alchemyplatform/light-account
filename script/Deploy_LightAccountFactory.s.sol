@@ -41,7 +41,9 @@ contract Deploy_LightAccountFactory is Script {
 
         LightAccountFactory factory = new LightAccountFactory{
             salt: 0x00000000000000000000000000000000000000005f1ffd9d31306e056bcc959b
-        }(owner, entryPoint);
+        }(
+            owner, entryPoint
+        );
 
         // Deployed address check
         if (address(factory) != 0x0000000000400CdFef5E2714E63d8040b700BC24) {

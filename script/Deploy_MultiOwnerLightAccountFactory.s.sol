@@ -22,8 +22,9 @@ contract Deploy_MultiOwnerLightAccountFactory is Script {
         vm.startBroadcast();
 
         // Init code hash check
-        bytes32 initCodeHash =
-            keccak256(abi.encodePacked(type(MultiOwnerLightAccountFactory).creationCode, abi.encode(owner, entryPoint)));
+        bytes32 initCodeHash = keccak256(
+            abi.encodePacked(type(MultiOwnerLightAccountFactory).creationCode, abi.encode(owner, entryPoint))
+        );
 
         if (initCodeHash != 0x69e0f4a2942425638860e9982bd32f08941a082681e53208de970099f18252cc) {
             revert InitCodeHashMismatch(initCodeHash);
@@ -41,7 +42,9 @@ contract Deploy_MultiOwnerLightAccountFactory is Script {
 
         MultiOwnerLightAccountFactory factory = new MultiOwnerLightAccountFactory{
             salt: 0x0000000000000000000000000000000000000000bb3ab048b3f4ef2620ea0163
-        }(owner, entryPoint);
+        }(
+            owner, entryPoint
+        );
 
         // Deployed address check
         if (address(factory) != 0x000000000019d2Ee9F2729A65AfE20bb0020AefC) {
