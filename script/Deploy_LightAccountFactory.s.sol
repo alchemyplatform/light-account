@@ -12,22 +12,15 @@ contract Deploy_LightAccountFactory is Script {
     address public entryPointAddr = vm.envAddress("ENTRYPOINT");
     IEntryPoint public entryPoint = IEntryPoint(payable(entryPointAddr));
 
-    // Load factory owner from env
+    // Load factory inputs from env
     address public owner = vm.envAddress("OWNER");
+    address public expectedFactoryAddress = vm.envAddress("EXPECTED_FACTORY_ADDRESS");
+    bytes32 public factorySalt = vm.envBytes32("FACTORY_SALT");
 
-    error InitCodeHashMismatch(bytes32 initCodeHash);
     error DeployedAddressMismatch(address deployed);
 
     function run() public {
         vm.startBroadcast();
-
-        // Init code hash check
-        bytes32 initCodeHash =
-            keccak256(abi.encodePacked(type(LightAccountFactory).creationCode, abi.encode(owner, entryPoint)));
-
-        if (initCodeHash != 0xfad339962af095db6ac3163c8504f102c28ae099db994101fbbca18ad0e3005c) {
-            revert InitCodeHashMismatch(initCodeHash);
-        }
 
         console.log("********************************");
         console.log("******** Deploy Inputs *********");
@@ -39,14 +32,10 @@ contract Deploy_LightAccountFactory is Script {
         console.log("******** Deploying.... *********");
         console.log("********************************");
 
-        LightAccountFactory factory = new LightAccountFactory{
-            salt: 0x00000000000000000000000000000000000000005f1ffd9d31306e056bcc959b
-        }(
-            owner, entryPoint
-        );
+        LightAccountFactory factory = new LightAccountFactory{salt: factorySalt}(owner, entryPoint);
 
         // Deployed address check
-        if (address(factory) != 0x0000000000400CdFef5E2714E63d8040b700BC24) {
+        if (address(factory) != expectedFactoryAddress) {
             revert DeployedAddressMismatch(address(factory));
         }
 

@@ -12,23 +12,15 @@ contract Deploy_MultiOwnerLightAccountFactory is Script {
     address public entryPointAddr = vm.envAddress("ENTRYPOINT");
     IEntryPoint public entryPoint = IEntryPoint(payable(entryPointAddr));
 
-    // Load factory owner from env
+    // Load factory inputs from env
     address public owner = vm.envAddress("OWNER");
+    address public expectedFactoryAddress = vm.envAddress("EXPECTED_FACTORY_ADDRESS");
+    bytes32 public factorySalt = vm.envBytes32("FACTORY_SALT");
 
-    error InitCodeHashMismatch(bytes32 initCodeHash);
     error DeployedAddressMismatch(address deployed);
 
     function run() public {
         vm.startBroadcast();
-
-        // Init code hash check
-        bytes32 initCodeHash = keccak256(
-            abi.encodePacked(type(MultiOwnerLightAccountFactory).creationCode, abi.encode(owner, entryPoint))
-        );
-
-        if (initCodeHash != 0x69e0f4a2942425638860e9982bd32f08941a082681e53208de970099f18252cc) {
-            revert InitCodeHashMismatch(initCodeHash);
-        }
 
         console.log("********************************");
         console.log("******** Deploy Inputs *********");
@@ -40,14 +32,10 @@ contract Deploy_MultiOwnerLightAccountFactory is Script {
         console.log("******** Deploying.... *********");
         console.log("********************************");
 
-        MultiOwnerLightAccountFactory factory = new MultiOwnerLightAccountFactory{
-            salt: 0x0000000000000000000000000000000000000000bb3ab048b3f4ef2620ea0163
-        }(
-            owner, entryPoint
-        );
+        MultiOwnerLightAccountFactory factory = new MultiOwnerLightAccountFactory{salt: factorySalt}(owner, entryPoint);
 
         // Deployed address check
-        if (address(factory) != 0x000000000019d2Ee9F2729A65AfE20bb0020AefC) {
+        if (address(factory) != expectedFactoryAddress) {
             revert DeployedAddressMismatch(address(factory));
         }
 
