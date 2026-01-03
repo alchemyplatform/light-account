@@ -112,8 +112,6 @@ contract LightAccount is BaseLightAccount, CustomSlotInitializable {
     }
 
     /// @dev Implement template method of BaseAccount.
-    /// Uses a modified version of `SignatureChecker.isValidSignatureNow` in which the digest is wrapped with an
-    /// "Ethereum Signed Message" envelope for the EOA-owner case but not in the ERC-1271 contract-owner case.
     function _validateSignature(PackedUserOperation calldata userOp, bytes32 userOpHash)
         internal
         virtual
