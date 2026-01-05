@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 
 import {EntryPoint} from "account-abstraction/core/EntryPoint.sol";
 import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
+import {IStakeManager} from "account-abstraction/interfaces/IStakeManager.sol";
 
 import {BaseLightAccountFactory} from "../src/common/BaseLightAccountFactory.sol";
 import {MultiOwnerLightAccount} from "../src/MultiOwnerLightAccount.sol";
@@ -128,7 +129,7 @@ contract MultiOwnerLightAccountFactoryTest is Test {
     function testWithdrawStake() public {
         testUnlockStake();
         vm.warp(10 hours);
-        vm.expectRevert("Stake withdrawal is not due");
+        vm.expectRevert(abi.encodeWithSelector(IStakeManager.WithdrawalNotDue.selector, 10 hours + 1, block.timestamp));
         factory.withdrawStake(payable(address(this)));
         assertEq(address(this).balance, 90 ether);
         vm.warp(10 hours + 1);

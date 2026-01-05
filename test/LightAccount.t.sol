@@ -61,7 +61,7 @@ contract LightAccountTest is Test {
         );
         PackedUserOperation[] memory ops = new PackedUserOperation[](1);
         ops[0] = op;
-        entryPoint.handleOps(ops, BENEFICIARY);
+        _handleOps(ops);
         assertTrue(lightSwitch.on());
     }
 
@@ -74,7 +74,7 @@ contract LightAccountTest is Test {
             abi.encodePacked(BaseLightAccount.SignatureType.CONTRACT, contractOwner.sign(entryPoint.getUserOpHash(op)));
         PackedUserOperation[] memory ops = new PackedUserOperation[](1);
         ops[0] = op;
-        entryPoint.handleOps(ops, BENEFICIARY);
+        _handleOps(ops);
         assertTrue(lightSwitch.on());
     }
 
@@ -86,7 +86,7 @@ contract LightAccountTest is Test {
         PackedUserOperation[] memory ops = new PackedUserOperation[](1);
         ops[0] = op;
         vm.expectRevert(abi.encodeWithSelector(IEntryPoint.FailedOp.selector, 0, "AA24 signature error"));
-        entryPoint.handleOps(ops, BENEFICIARY);
+        _handleOps(ops);
     }
 
     function testFuzz_rejectsUserOpsWithInvalidSignatureType(uint8 signatureType) public {
@@ -106,7 +106,7 @@ contract LightAccountTest is Test {
                 abi.encodePacked(BaseLightAccount.InvalidSignatureType.selector)
             )
         );
-        entryPoint.handleOps(ops, BENEFICIARY);
+        _handleOps(ops);
     }
 
     function testRevertsUserOpsWithMalformedSignature() public {
@@ -125,7 +125,7 @@ contract LightAccountTest is Test {
                 abi.encodeWithSelector(ECDSA.ECDSAInvalidSignatureLength.selector, (op.signature.length - 1))
             )
         );
-        entryPoint.handleOps(ops, BENEFICIARY);
+        _handleOps(ops);
 
         op.signature = abi.encodePacked(uint8(3));
         vm.expectRevert(
@@ -136,7 +136,7 @@ contract LightAccountTest is Test {
                 abi.encodeWithSelector(BaseLightAccount.InvalidSignatureType.selector)
             )
         );
-        entryPoint.handleOps(ops, BENEFICIARY);
+        _handleOps(ops);
 
         op.signature = hex"";
         vm.expectRevert(
@@ -147,7 +147,7 @@ contract LightAccountTest is Test {
                 abi.encodeWithSelector(BaseLightAccount.InvalidSignatureType.selector)
             )
         );
-        entryPoint.handleOps(ops, BENEFICIARY);
+        _handleOps(ops);
     }
 
     function testExecuteCannotBeCalledByRandos() public {
@@ -244,7 +244,7 @@ contract LightAccountTest is Test {
             _getSignedOp(abi.encodeCall(BaseLightAccount.withdrawDepositTo, (withdrawalAddress, 5)), EOA_PRIVATE_KEY);
         PackedUserOperation[] memory ops = new PackedUserOperation[](1);
         ops[0] = op;
-        entryPoint.handleOps(ops, BENEFICIARY);
+        _handleOps(ops);
 
         assertEq(withdrawalAddress.balance, 5);
     }
@@ -262,7 +262,7 @@ contract LightAccountTest is Test {
         );
         PackedUserOperation[] memory ops = new PackedUserOperation[](1);
         ops[0] = op;
-        entryPoint.handleOps(ops, BENEFICIARY);
+        _handleOps(ops);
 
         assertEq(withdrawalAddress.balance, 5);
     }
@@ -297,7 +297,7 @@ contract LightAccountTest is Test {
         ops[0] = op;
         vm.expectEmit(true, true, false, false);
         emit OwnershipTransferred(eoaAddress, newOwner);
-        entryPoint.handleOps(ops, BENEFICIARY);
+        _handleOps(ops);
         assertEq(account.owner(), newOwner);
     }
 
@@ -314,7 +314,7 @@ contract LightAccountTest is Test {
         ops[0] = op;
         vm.expectEmit(true, true, false, false);
         emit OwnershipTransferred(eoaAddress, newOwner);
-        entryPoint.handleOps(ops, BENEFICIARY);
+        _handleOps(ops);
         assertEq(account.owner(), newOwner);
     }
 
@@ -415,7 +415,7 @@ contract LightAccountTest is Test {
 
         vm.expectEmit(true, true, false, false);
         emit SimpleAccountInitialized(newEntryPoint, address(this));
-        entryPoint.handleOps(ops, BENEFICIARY);
+        _handleOps(ops);
 
         SimpleAccount upgradedAccount = SimpleAccount(payable(account));
         assertEq(address(upgradedAccount.entryPoint()), address(newEntryPoint));
@@ -444,7 +444,7 @@ contract LightAccountTest is Test {
 
         vm.expectEmit(true, true, false, false);
         emit SimpleAccountInitialized(newEntryPoint, address(this));
-        entryPoint.handleOps(ops, BENEFICIARY);
+        _handleOps(ops);
 
         SimpleAccount upgradedAccount = SimpleAccount(payable(account));
         assertEq(address(upgradedAccount.entryPoint()), address(newEntryPoint));
@@ -605,6 +605,11 @@ contract LightAccountTest is Test {
                 address(account)
             )
         );
+    }
+
+    function _handleOps(PackedUserOperation[] memory ops) internal {
+        vm.prank(tx.origin);
+        entryPoint.handleOps(ops, BENEFICIARY);
     }
 }
 
