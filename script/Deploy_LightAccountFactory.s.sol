@@ -32,17 +32,22 @@ contract Deploy_LightAccountFactory is Script {
         console.log("******** Deploying.... *********");
         console.log("********************************");
 
-        LightAccountFactory factory = new LightAccountFactory{salt: factorySalt}(owner, entryPoint);
-
-        // Deployed address check
-        if (address(factory) != expectedFactoryAddress) {
-            revert DeployedAddressMismatch(address(factory));
+        if (expectedFactoryAddress.code.length == 0) {
+            address factory = address(new LightAccountFactory{salt: factorySalt}(owner, entryPoint));
+            // Deployed address check
+            if (factory != expectedFactoryAddress) {
+                revert DeployedAddressMismatch(factory);
+            }
+        } else {
+            console.log("Factory already deployed at: ", expectedFactoryAddress);
         }
 
-        _addStakeForFactory(address(factory));
+        _addStakeForFactory(expectedFactoryAddress);
 
-        console.log("LightAccountFactory:", address(factory));
-        console.log("LightAccount:", address(factory.ACCOUNT_IMPLEMENTATION()));
+        console.log("LightAccountFactory:", address(expectedFactoryAddress));
+        console.log(
+            "LightAccount:", address(LightAccountFactory(payable(expectedFactoryAddress)).ACCOUNT_IMPLEMENTATION())
+        );
         console.log();
 
         vm.stopBroadcast();
@@ -53,11 +58,16 @@ contract Deploy_LightAccountFactory is Script {
         uint256 requiredStakeAmount = vm.envUint("REQUIRED_STAKE_AMOUNT");
         uint256 currentStakedAmount = entryPoint.getDepositInfo(factoryAddr).stake;
         uint256 stakeAmount = requiredStakeAmount - currentStakedAmount;
-        LightAccountFactory(payable(factoryAddr)).addStake{value: stakeAmount}(unstakeDelaySec, stakeAmount);
-        console.log("******** Add Stake Verify *********");
-        console.log("Staked factory: ", factoryAddr);
-        console.log("Stake amount: ", entryPoint.getDepositInfo(factoryAddr).stake);
-        console.log("Unstake delay: ", entryPoint.getDepositInfo(factoryAddr).unstakeDelaySec);
-        console.log("******** Stake Verify Done *********");
+
+        if (stakeAmount > 0) {
+            LightAccountFactory(payable(factoryAddr)).addStake{value: stakeAmount}(unstakeDelaySec, stakeAmount);
+            console.log("******** Add Stake Verify *********");
+            console.log("Staked factory: ", factoryAddr);
+            console.log("Stake amount: ", entryPoint.getDepositInfo(factoryAddr).stake);
+            console.log("Unstake delay: ", entryPoint.getDepositInfo(factoryAddr).unstakeDelaySec);
+            console.log("******** Stake Verify Done *********");
+        } else {
+            console.log("Factory already staked");
+        }
     }
 }
