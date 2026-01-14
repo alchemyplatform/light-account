@@ -47,7 +47,16 @@ contract Deploy_LightAccountFactory is Script {
         console.log("******** Deploying.... *********");
         console.log("********************************");
 
-        LightAccountFactory factory = deployImpl(bytes32(salt), expectedAddress, owner, entryPoint);
+        // read initcode from file
+        string memory hexInitCode = vm.readFile("bytecode/creationcode.bin");
+        bytes memory initcode = vm.parseBytes(hexInitCode);
+
+        // ensure the env vars are the expected values for the bytecode
+        require(salt == 0x00000000000000000000000000000000000000005f1ffd9d31306e056bcc959b, "Salt is not correct for deployment");
+        require(entryPointAddr == 0x0000000071727De22E5E9d8BAf0edAc6f37da032, "Entrypoint address is not correct for deployment");
+        require(owner == 0xDdF32240B4ca3184De7EC8f0D5Aba27dEc8B7A5C, "Owner address is not correct for deployment");
+
+        LightAccountFactory factory = deployImpl(initcode, bytes32(salt), expectedAddress);
 
         _addStakeForFactory(address(factory));
         console.log("LightAccountFactory:", address(factory));
@@ -58,9 +67,9 @@ contract Deploy_LightAccountFactory is Script {
     }
 
 
-    function deployImpl(bytes32 saltBytes, address expected, address ownerAddr, IEntryPoint ep) private returns (LightAccountFactory) {
+    function deployImpl(bytes memory initcode, bytes32 saltBytes, address expected) private returns (LightAccountFactory) {
         address addr = Create2.computeAddress(
-            saltBytes, keccak256(abi.encodePacked(type(LightAccountFactory).creationCode, abi.encode(ownerAddr, ep))), CREATE2_FACTORY
+            saltBytes, keccak256(initcode), CREATE2_FACTORY
         );
         console.logAddress(addr);
         require(addr == expected, "Expected address is not the same as computed for impl");
@@ -69,9 +78,10 @@ contract Deploy_LightAccountFactory is Script {
             return LightAccountFactory(payable(addr));
         }
 
-        LightAccountFactory impl = new LightAccountFactory{salt: saltBytes}(ownerAddr, ep);
-        require(address(impl) == addr, "Impl address did not match predicted");
-        return impl;
+        address impl = Create2.deploy(0, saltBytes, initcode);
+        LightAccountFactory factory = LightAccountFactory(payable(impl));
+        require(address(factory) == addr, "Impl address did not match predicted");
+        return factory;
     }
 
 
