@@ -65,9 +65,9 @@ contract Deploy_LightAccountFactory is Script {
             console.log("Staked factory: ", factoryAddr);
             console.log("Stake amount: ", entryPoint.getDepositInfo(factoryAddr).stake);
             console.log("Unstake delay: ", entryPoint.getDepositInfo(factoryAddr).unstakeDelaySec);
-            console.log("******** Stake Verify Done *********");
+            console.log("******** Stake Verify Done! *********");
         } else {
-            console.log("Factory already staked");
+            console.log("No stake needed for factory");
         }
     }
 }
