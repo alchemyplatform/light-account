@@ -87,16 +87,17 @@ contract Deploy_LightAccountFactory is Script {
 
     function _addStakeForFactory(address factoryAddr) internal {
         uint256 currentStakedAmount = entryPoint.getDepositInfo(factoryAddr).stake;
-        uint256 stakeRequired = stakeAmount - currentStakedAmount;
-        if (stakeRequired > 0) {
-            LightAccountFactory(payable(factoryAddr)).addStake{value: stakeRequired}(uint32(unstakeDelay), stakeRequired);
-            console.log("******** Add Stake Verify *********");
-            console.log("Staked factory: ", factoryAddr);
-            console.log("Stake amount: ", entryPoint.getDepositInfo(factoryAddr).stake);
-            console.log("Unstake delay: ", entryPoint.getDepositInfo(factoryAddr).unstakeDelaySec);
-            console.log("******** Stake Verify Done *********");
-        } else {
-            console.log("Contract already staked");
+
+        if (currentStakedAmount >= stakeAmount) {
+            console.log("Contract already sufficient staked");
+            return;
         }
+
+        LightAccountFactory(payable(factoryAddr)).addStake{value: stakeAmount - currentStakedAmount}(uint32(unstakeDelay), stakeAmount - currentStakedAmount);
+        console.log("******** Add Stake Verify *********");
+        console.log("Staked factory: ", factoryAddr);
+        console.log("Stake amount: ", entryPoint.getDepositInfo(factoryAddr).stake);
+        console.log("Unstake delay: ", entryPoint.getDepositInfo(factoryAddr).unstakeDelaySec);
+        console.log("******** Stake Verify Done *********");
     }
 }
