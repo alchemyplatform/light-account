@@ -93,7 +93,9 @@ contract Deploy_LightAccountFactory is Script {
             return;
         }
 
-        LightAccountFactory(payable(factoryAddr)).addStake{value: stakeAmount - currentStakedAmount}(uint32(unstakeDelay), stakeAmount - currentStakedAmount);
+        uint256 toStakeAmount = stakeAmount - currentStakedAmount;
+
+        LightAccountFactory(payable(factoryAddr)).addStake{value: toStakeAmount}(uint32(unstakeDelay), toStakeAmount);
         console.log("******** Add Stake Verify *********");
         console.log("Staked factory: ", factoryAddr);
         console.log("Stake amount: ", entryPoint.getDepositInfo(factoryAddr).stake);

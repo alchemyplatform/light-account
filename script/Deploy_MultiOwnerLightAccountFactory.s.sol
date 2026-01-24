@@ -84,19 +84,21 @@ contract Deploy_MultiOwnerLightAccountFactory is Script {
         uint32 unstakeDelaySec = uint32(vm.envOr("UNSTAKE_DELAY_SEC", uint32(86400)));
         uint256 requiredStakeAmount = vm.envUint("REQUIRED_STAKE_AMOUNT");
         uint256 currentStakedAmount = entryPoint.getDepositInfo(factoryAddr).stake;
-        uint256 stakeAmount = requiredStakeAmount - currentStakedAmount;
 
-        if (stakeAmount > 0) {
-            MultiOwnerLightAccountFactory(payable(factoryAddr)).addStake{value: stakeAmount}(
-                unstakeDelaySec, stakeAmount
-            );
-            console.log("******** Add Stake Verify *********");
-            console.log("Staked factory: ", factoryAddr);
-            console.log("Stake amount: ", entryPoint.getDepositInfo(factoryAddr).stake);
-            console.log("Unstake delay: ", entryPoint.getDepositInfo(factoryAddr).unstakeDelaySec);
-            console.log("******** Stake Verify Done *********");
-        } else {
-            console.log("No stake needed for factory");
+        if (currentStakedAmount >= requiredStakeAmount) {
+            console.log("Contract already sufficient staked");
+            return;
         }
+
+        uint256 toStakeAmount = requiredStakeAmount - currentStakedAmount;
+
+        MultiOwnerLightAccountFactory(payable(factoryAddr)).addStake{value: toStakeAmount}(
+            unstakeDelaySec, toStakeAmount
+        );
+        console.log("******** Add Stake Verify *********");
+        console.log("Staked factory: ", factoryAddr);
+        console.log("Stake amount: ", entryPoint.getDepositInfo(factoryAddr).stake);
+        console.log("Unstake delay: ", entryPoint.getDepositInfo(factoryAddr).unstakeDelaySec);
+        console.log("******** Stake Verify Done *********");
     }
 }
