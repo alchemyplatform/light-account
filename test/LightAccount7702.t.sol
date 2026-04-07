@@ -77,6 +77,17 @@ contract LightAccount7702Test is Test {
         assertTrue(lightSwitch.on());
     }
 
+    function testExecuteCanBeCalledByEntryPointWithRawSignature() public {
+        PackedUserOperation memory op = _getRawSignedOp(
+            abi.encodeCall(BaseLightAccount.execute, (address(lightSwitch), 0, abi.encodeCall(LightSwitch.turnOn, ()))),
+            EOA_PRIVATE_KEY
+        );
+        PackedUserOperation[] memory ops = new PackedUserOperation[](1);
+        ops[0] = op;
+        entryPoint.handleOps(ops, BENEFICIARY);
+        assertTrue(lightSwitch.on());
+    }
+
     function testExecuteCannotBeCalledByRandos() public {
         vm.expectRevert(abi.encodeWithSelector(BaseLightAccount.NotAuthorized.selector, address(this)));
         account.execute(address(lightSwitch), 0, abi.encodeCall(LightSwitch.turnOn, ()));
@@ -241,6 +252,12 @@ contract LightAccount7702Test is Test {
         assertEq(account.isValidSignature(message, signature), bytes4(keccak256("isValidSignature(bytes32,bytes)")));
     }
 
+    function testIsValidSignatureForRawEoaOwner() public view {
+        bytes32 message = keccak256("hello world");
+        bytes memory signature = _sign(EOA_PRIVATE_KEY, _getMessageHash(abi.encode(message)));
+        assertEq(account.isValidSignature(message, signature), bytes4(keccak256("isValidSignature(bytes32,bytes)")));
+    }
+
     function testIsValidSignatureRejectsContractType() public {
         bytes32 message = keccak256("hello world");
         bytes memory signature = abi.encodePacked(BaseLightAccount.SignatureType.CONTRACT, hex"deadbeef");
@@ -253,6 +270,12 @@ contract LightAccount7702Test is Test {
         bytes memory signature = abi.encodePacked(
             BaseLightAccount.SignatureType.EOA, _sign(123, _getMessageHash(abi.encode(message)))
         );
+        assertEq(account.isValidSignature(message, signature), bytes4(0xffffffff));
+    }
+
+    function testIsValidSignatureRejectsInvalidRawSigner() public view {
+        bytes32 message = keccak256("hello world");
+        bytes memory signature = _sign(123, _getMessageHash(abi.encode(message)));
         assertEq(account.isValidSignature(message, signature), bytes4(0xffffffff));
     }
 
@@ -270,8 +293,8 @@ contract LightAccount7702Test is Test {
         vm.expectRevert(abi.encodeWithSelector(ECDSA.ECDSAInvalidSignatureLength.selector, 0));
         account.isValidSignature(message, signature);
 
-        // Missing SignatureType prefix entirely
-        signature = _sign(EOA_PRIVATE_KEY, _getMessageHash(abi.encode(message)));
+        // Raw malformed signature uses the raw path and must still be exactly 65 bytes.
+        signature = hex"1234567890abcdef1234567890abcdef1234567890abcdef";
         vm.expectRevert(BaseLightAccount.InvalidSignatureType.selector);
         account.isValidSignature(message, signature);
     }
@@ -476,6 +499,16 @@ contract LightAccount7702Test is Test {
         PackedUserOperation memory op = _getUnsignedOp(callData);
         op.signature =
             abi.encodePacked(BaseLightAccount.SignatureType.EOA, _sign(privateKey, entryPoint.getUserOpHash(op)));
+        return op;
+    }
+
+    function _getRawSignedOp(bytes memory callData, uint256 privateKey)
+        internal
+        view
+        returns (PackedUserOperation memory)
+    {
+        PackedUserOperation memory op = _getUnsignedOp(callData);
+        op.signature = _sign(privateKey, entryPoint.getUserOpHash(op));
         return op;
     }
 

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.28;
 
+import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
 import {PackedUserOperation} from "account-abstraction/interfaces/PackedUserOperation.sol";
 
@@ -17,8 +18,9 @@ import {SingleOwnerLightAccountBase} from "./SingleOwnerLightAccountBase.sol";
 ///
 /// 3. Upgrades are not allowed. To change implementations, the EOA should create a new 7702 delegation.
 ///
-/// 4. Only EOA signatures (SignatureType.EOA) are supported. CONTRACT signature type is rejected since the owner
-/// is the account itself, and contract-style signatures would create a recursive self-call.
+/// 4. Only EOA signatures are supported. For compatibility, both raw 65-byte ECDSA signatures and
+/// `SignatureType.EOA || signature` are accepted. CONTRACT signature types are rejected since the owner is the
+/// account itself, and contract-style signatures would create a recursive self-call.
 ///
 /// 5. Supports [ERC-1271](https://eips.ethereum.org/EIPS/eip-1271) signature validation, allowing the delegating
 /// EOA to sign messages that can be verified on-chain.
@@ -60,14 +62,7 @@ contract LightAccount7702 is SingleOwnerLightAccountBase {
         override
         returns (uint256 validationData)
     {
-        if (userOp.signature.length < 1) {
-            revert InvalidSignatureType();
-        }
-        uint8 signatureType = uint8(userOp.signature[0]);
-        if (signatureType == uint8(SignatureType.EOA)) {
-            return _successToValidationData(_isValidEOAOwnerSignature(userOpHash, userOp.signature[1:]));
-        }
-        revert InvalidSignatureType();
+        return _successToValidationData(_isValidEOAOwnerSignatureWithOptionalPrefix(userOpHash, userOp.signature));
     }
 
     /// @dev Only EOA signatures are supported for 7702 accounts. CONTRACT signature type would cause
@@ -79,14 +74,7 @@ contract LightAccount7702 is SingleOwnerLightAccountBase {
         override
         returns (bool)
     {
-        if (signature.length < 1) {
-            revert InvalidSignatureType();
-        }
-        uint8 signatureType = uint8(signature[0]);
-        if (signatureType == uint8(SignatureType.EOA)) {
-            return _isValidEOAOwnerSignature(replaySafeHash, signature[1:]);
-        }
-        revert InvalidSignatureType();
+        return _isValidEOAOwnerSignatureWithOptionalPrefix(replaySafeHash, signature);
     }
 
     /// @dev Contract owner signatures are not supported for 7702 accounts because owner() == address(this),
@@ -105,5 +93,27 @@ contract LightAccount7702 is SingleOwnerLightAccountBase {
         name = "LightAccount7702";
         // Set to the major version of the GitHub release at which the contract was last updated.
         version = "2";
+    }
+
+    /// @dev Parse raw 65-byte ECDSA signatures, or `SignatureType.EOA || signature`.
+    /// Length-based parsing avoids treating a raw signature whose first byte is `0x00` as prefixed.
+    function _isValidEOAOwnerSignatureWithOptionalPrefix(bytes32 digest, bytes calldata signature)
+        internal
+        view
+        returns (bool)
+    {
+        if (signature.length == 65) {
+            return _isValidEOAOwnerSignature(digest, signature);
+        }
+        if (signature.length == 66) {
+            if (uint8(signature[0]) != uint8(SignatureType.EOA)) {
+                revert InvalidSignatureType();
+            }
+            return _isValidEOAOwnerSignature(digest, signature[1:]);
+        }
+        if (signature.length > 0 && uint8(signature[0]) == uint8(SignatureType.EOA)) {
+            revert ECDSA.ECDSAInvalidSignatureLength(signature.length - 1);
+        }
+        revert InvalidSignatureType();
     }
 }
