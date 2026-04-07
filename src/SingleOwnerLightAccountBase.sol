@@ -51,7 +51,7 @@ abstract contract SingleOwnerLightAccountBase is BaseLightAccount, CustomSlotIni
     /// @param digest The digest to be checked.
     /// @param signature The signature to be checked.
     /// @return True if the signature is valid and by an owner, false otherwise.
-    function _isValidContractOwnerSignatureNow(bytes32 digest, bytes memory signature) internal view returns (bool) {
+    function _isValidContractOwnerSignatureNow(bytes32 digest, bytes memory signature) internal view virtual returns (bool) {
         return SignatureChecker.isValidERC1271SignatureNow(owner(), digest, signature);
     }
 

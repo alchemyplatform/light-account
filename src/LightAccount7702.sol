@@ -89,6 +89,12 @@ contract LightAccount7702 is SingleOwnerLightAccountBase {
         revert InvalidSignatureType();
     }
 
+    /// @dev Contract owner signatures are not supported for 7702 accounts because owner() == address(this),
+    /// which would cause a recursive call to isValidSignature.
+    function _isValidContractOwnerSignatureNow(bytes32, bytes memory) internal view override returns (bool) {
+        revert InvalidSignatureType();
+    }
+
     function _domainNameAndVersion()
         internal
         view
