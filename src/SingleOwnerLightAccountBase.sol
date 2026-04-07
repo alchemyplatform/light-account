@@ -42,8 +42,21 @@ abstract contract SingleOwnerLightAccountBase is BaseLightAccount, CustomSlotIni
     /// @param digest The digest to be checked.
     /// @param signature The signature to be checked.
     /// @return True if the signature is valid and by the owner, false otherwise.
-    function _isValidEOAOwnerSignature(bytes32 digest, bytes memory signature) internal view returns (bool) {
-        address recovered = digest.recover(signature);
+    function _isValidEOAOwnerSignature(bytes32 digest, bytes calldata signature) internal view returns (bool) {
+        if (signature.length != 65) {
+            revert ECDSA.ECDSAInvalidSignatureLength(signature.length);
+        }
+
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+        assembly ("memory-safe") {
+            r := calldataload(signature.offset)
+            s := calldataload(add(signature.offset, 0x20))
+            v := byte(0, calldataload(add(signature.offset, 0x40)))
+        }
+
+        address recovered = ECDSA.recover(digest, v, r, s);
         return recovered == owner();
     }
 

@@ -15,11 +15,17 @@ contract LightAccount7702Test is Test {
     using ECDSA for bytes32;
 
     uint256 public constant EOA_PRIVATE_KEY = 1;
+    uint256 public constant FIRST_OP_PRIVATE_KEY = 2;
     address payable public constant BENEFICIARY = payable(address(0xbe9ef1c1a2ee));
     bytes32 internal constant _MESSAGE_TYPEHASH = keccak256("LightAccountMessage(bytes message)");
+    bytes2 internal constant _INITCODE_EIP7702_MARKER = 0x7702;
+    bytes32 internal constant _PACKED_USEROP_TYPEHASH = keccak256(
+        "PackedUserOperation(address sender,uint256 nonce,bytes initCode,bytes callData,bytes32 accountGasLimits,uint256 preVerificationGas,bytes32 gasFees,bytes paymasterAndData)"
+    );
 
     address public eoaAddress;
     LightAccount7702 public account;
+    LightAccount7702 public implementation;
     EntryPoint public entryPoint;
     LightSwitch public lightSwitch;
 
@@ -28,10 +34,10 @@ contract LightAccount7702Test is Test {
         entryPoint = new EntryPoint();
 
         // Deploy the 7702 implementation.
-        LightAccount7702 impl = new LightAccount7702(entryPoint);
+        implementation = new LightAccount7702(entryPoint);
 
         // Set up EIP-7702 delegation: EOA delegates to impl.
-        Vm.SignedDelegation memory delegation = vm.signDelegation(address(impl), EOA_PRIVATE_KEY);
+        Vm.SignedDelegation memory delegation = vm.signDelegation(address(implementation), EOA_PRIVATE_KEY);
         vm.attachDelegation(delegation);
 
         // Reference the account at the EOA address.
@@ -84,6 +90,49 @@ contract LightAccount7702Test is Test {
         );
         PackedUserOperation[] memory ops = new PackedUserOperation[](1);
         ops[0] = op;
+        entryPoint.handleOps(ops, BENEFICIARY);
+        assertTrue(lightSwitch.on());
+    }
+
+    function testExecuteCanBeCalledByEntryPointOnFirst7702Op() public {
+        address sender = vm.addr(FIRST_OP_PRIVATE_KEY);
+        vm.deal(sender, 1 << 128);
+
+        PackedUserOperation memory op = _getFirstOpRawSignedOp(
+            sender,
+            abi.encodePacked(_INITCODE_EIP7702_MARKER),
+            abi.encodeCall(BaseLightAccount.execute, (address(lightSwitch), 0, abi.encodeCall(LightSwitch.turnOn, ()))),
+            FIRST_OP_PRIVATE_KEY
+        );
+        PackedUserOperation[] memory ops = new PackedUserOperation[](1);
+        ops[0] = op;
+
+        Vm.SignedDelegation memory delegation = vm.signDelegation(address(implementation), FIRST_OP_PRIVATE_KEY);
+        vm.attachDelegation(delegation);
+
+        entryPoint.handleOps(ops, BENEFICIARY);
+        assertTrue(lightSwitch.on());
+    }
+
+    function testExecuteCanBeCalledByEntryPointOnFirst7702OpWithInitCallData() public {
+        address sender = vm.addr(FIRST_OP_PRIVATE_KEY);
+        vm.deal(sender, 1 << 128);
+
+        bytes memory initCode = abi.encodePacked(
+            bytes20(_INITCODE_EIP7702_MARKER), abi.encodeCall(LightAccount7702.owner, ())
+        );
+        PackedUserOperation memory op = _getFirstOpRawSignedOp(
+            sender,
+            initCode,
+            abi.encodeCall(BaseLightAccount.execute, (address(lightSwitch), 0, abi.encodeCall(LightSwitch.turnOn, ()))),
+            FIRST_OP_PRIVATE_KEY
+        );
+        PackedUserOperation[] memory ops = new PackedUserOperation[](1);
+        ops[0] = op;
+
+        Vm.SignedDelegation memory delegation = vm.signDelegation(address(implementation), FIRST_OP_PRIVATE_KEY);
+        vm.attachDelegation(delegation);
+
         entryPoint.handleOps(ops, BENEFICIARY);
         assertTrue(lightSwitch.on());
     }
@@ -474,14 +523,22 @@ contract LightAccount7702Test is Test {
     // -------------------------------------------------------
 
     function _getUnsignedOp(bytes memory callData) internal view returns (PackedUserOperation memory) {
+        return _getUnsignedOpForSender(address(account), "", callData);
+    }
+
+    function _getUnsignedOpForSender(address sender, bytes memory initCode, bytes memory callData)
+        internal
+        pure
+        returns (PackedUserOperation memory)
+    {
         uint128 verificationGasLimit = 1 << 24;
         uint128 callGasLimit = 1 << 24;
         uint128 maxPriorityFeePerGas = 1 << 8;
         uint128 maxFeePerGas = 1 << 8;
         return PackedUserOperation({
-            sender: address(account),
+            sender: sender,
             nonce: 0,
-            initCode: "",
+            initCode: initCode,
             callData: callData,
             accountGasLimits: bytes32(uint256(verificationGasLimit) << 128 | callGasLimit),
             preVerificationGas: 1 << 24,
@@ -510,6 +567,45 @@ contract LightAccount7702Test is Test {
         PackedUserOperation memory op = _getUnsignedOp(callData);
         op.signature = _sign(privateKey, entryPoint.getUserOpHash(op));
         return op;
+    }
+
+    function _getFirstOpRawSignedOp(address sender, bytes memory initCode, bytes memory callData, uint256 privateKey)
+        internal
+        view
+        returns (PackedUserOperation memory)
+    {
+        PackedUserOperation memory op = _getUnsignedOpForSender(sender, initCode, callData);
+        op.signature = _sign(privateKey, _get7702UserOpHash(op, address(implementation)));
+        return op;
+    }
+
+    function _get7702UserOpHash(PackedUserOperation memory op, address delegate) internal view returns (bytes32) {
+        bytes32 packedUserOpHash = keccak256(
+            abi.encode(
+                _PACKED_USEROP_TYPEHASH,
+                op.sender,
+                op.nonce,
+                _get7702InitCodeHashOverride(op.initCode, delegate),
+                keccak256(op.callData),
+                op.accountGasLimits,
+                op.preVerificationGas,
+                op.gasFees,
+                keccak256(op.paymasterAndData)
+            )
+        );
+        return keccak256(abi.encodePacked("\x19\x01", entryPoint.getDomainSeparatorV4(), packedUserOpHash));
+    }
+
+    function _get7702InitCodeHashOverride(bytes memory initCode, address delegate) internal pure returns (bytes32) {
+        if (initCode.length <= 20) {
+            return keccak256(abi.encodePacked(delegate));
+        }
+
+        bytes memory initCallData = new bytes(initCode.length - 20);
+        for (uint256 i = 20; i < initCode.length; ++i) {
+            initCallData[i - 20] = initCode[i];
+        }
+        return keccak256(abi.encodePacked(delegate, initCallData));
     }
 
     function _sign(uint256 privateKey, bytes32 digest) internal pure returns (bytes memory) {

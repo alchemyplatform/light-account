@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import "forge-std/Script.sol";
 
+import {ERC165Checker} from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
 
 import {LightAccount7702} from "../src/LightAccount7702.sol";
@@ -17,8 +18,11 @@ contract Deploy_LightAccount7702 is Script {
     address public expectedImplAddress = vm.envAddress("EXPECTED_IMPL_ADDRESS");
 
     error DeployedAddressMismatch(address deployed);
+    error InvalidEntryPoint(address entryPoint);
 
     function run() public {
+        _verifyEntryPointAddress(entryPointAddr);
+
         vm.startBroadcast();
 
         console.log("********************************");
@@ -42,5 +46,11 @@ contract Deploy_LightAccount7702 is Script {
         console.log();
 
         vm.stopBroadcast();
+    }
+
+    function _verifyEntryPointAddress(address entryPointAddress) internal view {
+        if (!ERC165Checker.supportsInterface(entryPointAddress, type(IEntryPoint).interfaceId)) {
+            revert InvalidEntryPoint(entryPointAddress);
+        }
     }
 }
