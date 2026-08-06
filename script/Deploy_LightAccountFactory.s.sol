@@ -57,7 +57,9 @@ contract Deploy_LightAccountFactory is Script {
         uint32 unstakeDelaySec = uint32(vm.envOr("UNSTAKE_DELAY_SEC", uint32(86400)));
         uint256 requiredStakeAmount = vm.envUint("REQUIRED_STAKE_AMOUNT");
         uint256 currentStakedAmount = entryPoint.getDepositInfo(factoryAddr).stake;
-        uint256 stakeAmount = requiredStakeAmount - currentStakedAmount;
+        // Clamp rather than subtract directly: a factory staked above the required amount underflows, and
+        // the deployer passes a required amount of 0 when staking is meant to be skipped entirely.
+        uint256 stakeAmount = requiredStakeAmount > currentStakedAmount ? requiredStakeAmount - currentStakedAmount : 0;
 
         if (stakeAmount > 0) {
             LightAccountFactory(payable(factoryAddr)).addStake{value: stakeAmount}(unstakeDelaySec, stakeAmount);
