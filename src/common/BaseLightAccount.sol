@@ -4,7 +4,6 @@ pragma solidity ^0.8.28;
 import {BaseAccount} from "account-abstraction/core/BaseAccount.sol";
 import {SIG_VALIDATION_FAILED, SIG_VALIDATION_SUCCESS} from "account-abstraction/core/Helpers.sol";
 import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
-import {PackedUserOperation} from "account-abstraction/interfaces/PackedUserOperation.sol";
 import {TokenCallbackHandler} from "account-abstraction/accounts/callback/TokenCallbackHandler.sol";
 
 import {UUPSUpgradeable} from "../external/solady/UUPSUpgradeable.sol";
@@ -22,6 +21,7 @@ abstract contract BaseLightAccount is BaseAccount, TokenCallbackHandler, UUPSUpg
 
     error ArrayLengthMismatch();
     error CreateFailed();
+    /// @dev The signature type byte is invalid or unsupported, or the signature is empty.
     error InvalidSignatureType();
     error NotAuthorized(address caller);
     error ZeroAddressNotAllowed();

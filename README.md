@@ -49,6 +49,18 @@ Like `LightAccount`, but with the following changes:
    - `SignatureType.EOA`: For EOA owners. Signature is validated using `ecrecover`.
    - `SignatureType.CONTRACT_WITH_ADDR`: For contract owners. Signature is validated using `owner.isValidSignature`. The contract owner address MUST be passed as part of the signature, following the format: `SignatureType.CONTRACT_WITH_ADDR || contractOwnerAddress || signature`, where `||` is the byte concatenation operator.
 
+### `LightAccount7702`
+
+An EIP-7702 delegate implementation of `LightAccount` for EOAs that want ERC-4337 compatibility without deploying a separate proxy account.
+
+1. The owner is always the delegating EOA itself (`address(this)` in delegated execution).
+
+2. Upgrades, initialization, and ownership transfers are intentionally disabled. To switch implementations, authorize a new 7702 delegate.
+
+3. Only EOA signatures are supported. For compatibility, both raw 65-byte ECDSA signatures and `SignatureType.EOA || signature` are accepted for user operations and ERC-1271 validation.
+
+4. Contract-style signatures are rejected because `owner() == address(this)`, which would make ERC-1271 owner checks recursive.
+
 ## Deployments
 
 See the current deployments by network under the [deployments](./deployments) folder.
@@ -72,6 +84,7 @@ The deploy script supports any [wallet options](https://book.getfoundry.sh/refer
 ```bash
 forge script script/Deploy_LightAccountFactory.s.sol [WALLET_OPTION] --sender [SENDER_ADDRESS] --rpc-url [RPC_URL] -vvvv --broadcast --verify
 forge script script/Deploy_MultiOwnerLightAccountFactory.s.sol [WALLET_OPTION] --sender [SENDER_ADDRESS] --rpc-url [RPC_URL] -vvvv --broadcast --verify
+forge script script/Deploy_LightAccount7702.s.sol [WALLET_OPTION] --sender [SENDER_ADDRESS] --rpc-url [RPC_URL] -vvvv --broadcast --verify
 ```
 
 Make sure the provided `RPC_URL` is set to an RPC for the chain you wish to deploy on.
